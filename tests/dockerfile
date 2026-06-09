@@ -1,0 +1,17 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+	PYTHONUNBUFFERED=1
+
+WORKDIR /app/tests
+
+RUN pip install --no-cache-dir fastapi uvicorn
+
+COPY tests/server_test.py ./server_test.py
+
+EXPOSE 8003
+
+CMD ["uvicorn", "server_test:app", "--host", "0.0.0.0", "--port", "8003"]
+
+# docker build -f tests/dockerfile -t helmsman-server-test:latest .
+# docker run -d --name helmsman-server-test -p 8003:8003 helmsman-server-test:latest

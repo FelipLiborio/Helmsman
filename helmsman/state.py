@@ -57,6 +57,7 @@ class HelmsmanState:
         self.rps_per_replica: float = 100.0
         self.poll_interval: int = 5
         self.service_image: str = ""
+        self.service_name: str = ""
 
         # containers gerenciados
         self.managed_containers: List[str] = []

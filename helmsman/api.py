@@ -40,6 +40,8 @@ def get_status():
     a = state.last_alert
     return {
         "replicas": len(state.managed_containers),
+        "max_replicas": state.max_replicas,
+        "service_name": state.service_name,
         "last_alert": {
             "level": a.level if a else "none",
             "message": a.message if a else "",
@@ -105,6 +107,30 @@ def get_decisions(limit: int = 50):
         }
         for d in items
     ]
+
+
+@api.get("/host-info")
+def get_host_info():
+    import os
+    ram_total = 0
+    try:
+        with open("/proc/meminfo") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    ram_total = int(line.split()[1]) * 1024
+                    break
+    except OSError:
+        pass
+    return {
+        "ram_total_gb": round(ram_total / (1024 ** 3), 1),
+        "cpu_count": os.cpu_count() or 1,
+    }
+
+
+@api.get("/http-stats")
+def get_http_stats():
+    from .collector import http_stats
+    return http_stats()
 
 
 @api.get("/alerts")

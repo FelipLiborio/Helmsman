@@ -17,7 +17,10 @@ _client_lock = threading.Lock()
 _rps_deque: deque = deque(maxlen=50_000)
 _rps_lock = threading.Lock()
 
-_LOG_RE = re.compile(r'^\S+ - - \[')
+# (timestamp, status_code) para distribuição HTTP
+_http_deque: deque = deque(maxlen=50_000)
+
+_LOG_RE = re.compile(r'^\S+ - - \[.*?\] ".*?" (\d{3}) ')
 
 
 def _client() -> docker.DockerClient:
@@ -101,9 +104,12 @@ def collect_container_stats(
 # ---------------------------------------------------------------------------
 
 def record_log_line(line: str) -> None:
-    if _LOG_RE.match(line):
+    m = _LOG_RE.match(line)
+    if m:
+        now = time.monotonic()
         with _rps_lock:
-            _rps_deque.append(time.monotonic())
+            _rps_deque.append(now)
+            _http_deque.append((now, int(m.group(1))))
 
 
 def current_rps(window: float = 10.0) -> float:
@@ -112,6 +118,34 @@ def current_rps(window: float = 10.0) -> float:
     with _rps_lock:
         count = sum(1 for t in _rps_deque if t >= cutoff)
     return count / window
+
+
+def http_stats(window: float = 300.0) -> dict:
+    """Contagem de 2xx/4xx/5xx nos últimos `window` segundos."""
+    now = time.monotonic()
+    cutoff = now - window
+    counts = {"2xx": 0, "4xx": 0, "5xx": 0, "other": 0}
+    with _rps_lock:
+        for ts, code in _http_deque:
+            if ts < cutoff:
+                continue
+            if 200 <= code < 300:
+                counts["2xx"] += 1
+            elif 400 <= code < 500:
+                counts["4xx"] += 1
+            elif 500 <= code < 600:
+                counts["5xx"] += 1
+            else:
+                counts["other"] += 1
+    total = sum(counts.values())
+    if total == 0:
+        return {"2xx": 0, "4xx": 0, "5xx": 0, "total": 0}
+    return {
+        "2xx": round(counts["2xx"] / total * 100),
+        "4xx": round(counts["4xx"] / total * 100),
+        "5xx": round(counts["5xx"] / total * 100),
+        "total": total,
+    }
 
 
 def follow_nginx_log(log_path: str) -> None:

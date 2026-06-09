@@ -50,6 +50,7 @@ def start(
     state.rps_per_replica = rps_per_replica
     state.poll_interval = poll_interval
     state.service_image = image
+    state.service_name = container
     state.running = True
     state.managed_containers = [c.id]
 
