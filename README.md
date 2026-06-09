@@ -14,7 +14,7 @@ A lógica fuzzy combina os três sinais antes de agir, permitindo expressar conh
 |---|---|---|
 | CPU 85% com zero requisições | Escala (errado) | Detecta anomalia, alerta, não escala |
 | RAM crítica com demanda alta | Escala (pode derrubar o host) | Bloqueia scale up, emite alerta crítico |
-| RPS alto com CPU baixa | Escala (desnecessário) | Avalia contra o limite configurado |
+| RPS alto com CPU baixa | Escala sem contexto | Escala e redistribui tráfego entre réplicas |
 | CPU em 79% vs 81% | Decisões completamente diferentes | Transição suave e gradual |
 
 ### Simplicidade como princípio
@@ -51,6 +51,7 @@ Motor Fuzzy Mamdani:
       ▼
 Ação:
   scale up / scale down via docker-py
+  atualiza upstream do nginx → distribui tráfego entre todas as réplicas
   emissão de alerta (warning / critical)
       │
       ▼
@@ -58,6 +59,8 @@ Dashboard em http://localhost:8800
 ```
 
 O serviço do usuário **não é modificado**. O nginx sobe na frente dele como sidecar, conta as requisições e repassa o tráfego de forma transparente.
+
+Quando o motor decide escalar, o nginx é reconfigurado automaticamente: cada nova réplica entra no bloco `upstream` e passa a receber tráfego por round-robin. O reload é gracioso — sem derrubar conexões em andamento. No scale down, as réplicas removidas saem do upstream antes de serem desligadas.
 
 ---
 

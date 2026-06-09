@@ -1,5 +1,6 @@
 """Coleta de métricas via docker-py (CPU/RAM) e nginx access.log (RPS)."""
 
+import os
 import re
 import threading
 import time
@@ -68,6 +69,8 @@ def collect_container_stats(
     container_ids: List[str],
 ) -> Tuple[float, float, List[ContainerStats]]:
     """Retorna (cpu_total_pct, ram_total_pct, lista_por_container)."""
+    # divide pelo nº de CPUs do host para normalizar % de um core → % do host (0–100)
+    ncpus = os.cpu_count() or 1
     host_ram = _host_ram_bytes()
     cli = _client()
     total_cpu = 0.0
@@ -78,7 +81,7 @@ def collect_container_stats(
         try:
             c = cli.containers.get(cid)
             raw = c.stats(stream=False)
-            cpu = _cpu_pct_from_stats(raw)
+            cpu = _cpu_pct_from_stats(raw) / ncpus
             ram_b = raw["memory_stats"].get("usage", 0)
             ram_pct = (ram_b / host_ram * 100) if host_ram else 0.0
             total_cpu += cpu
@@ -96,7 +99,7 @@ def collect_container_stats(
             pass
 
     total_ram_pct = (total_ram_bytes / host_ram * 100) if host_ram else 0.0
-    return round(total_cpu, 2), round(total_ram_pct, 2), stats_list
+    return round(min(total_cpu, 100.0), 2), round(total_ram_pct, 2), stats_list
 
 
 # ---------------------------------------------------------------------------
