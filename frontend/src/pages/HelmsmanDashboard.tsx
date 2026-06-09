@@ -73,8 +73,8 @@ function Card({ children, style }: { children: React.ReactNode; style?: React.CS
   );
 }
 
-function CardTitle({ children }: { children: React.ReactNode }) {
-  return <div style={{ fontSize: 12, fontWeight: 500, color: "#888", marginBottom: 10 }}>{children}</div>;
+function CardTitle({ children, style }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return <div style={{ fontSize: 12, fontWeight: 500, color: "#888", marginBottom: 10, ...style }}>{children}</div>;
 }
 
 function MiniBar({ pct, color }: { pct: number; color: string }) {
@@ -115,17 +115,18 @@ export default function HelmsmanDashboard() {
   const [history,    setHistory]    = useState<HistoryPoint[]>([]);
   const [containers, setContainers] = useState<ContainerStat[]>([]);
   const [decisions,  setDecisions]  = useState<Decision[]>([]);
+  const [decisionLimit, setDecisionLimit] = useState<number>(25);
   const [alerts,     setAlerts]     = useState<Alert[]>([]);
   const [httpStats,  setHttpStats]  = useState<HttpStats | null>(null);
   const [hostInfo,   setHostInfo]   = useState<HostInfo | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async () => {  // eslint-disable-line react-hooks/exhaustive-deps
     const [m, s, h, c, d, a, hs, hi] = await Promise.all([
       fetchMetrics(),
       fetchStatus(),
       fetchHistory(120),
       fetchContainers(),
-      fetchDecisions(20),
+      fetchDecisions(decisionLimit),
       fetchAlerts(20),
       fetchHttpStats(),
       fetchHostInfo(),
@@ -138,7 +139,7 @@ export default function HelmsmanDashboard() {
     if (a)  setAlerts(a);
     if (hs) setHttpStats(hs);
     if (hi) setHostInfo(hi);
-  }, []);
+  }, [decisionLimit]);
 
   useEffect(() => {
     refresh();
@@ -332,19 +333,40 @@ export default function HelmsmanDashboard() {
       {/* decisões fuzzy */}
       <SectionLabel>decisões fuzzy recentes</SectionLabel>
       <Card style={{ marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+          <CardTitle style={{ margin: 0 }}>últimas decisões</CardTitle>
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 10, color: "#aaa" }}>exibir</span>
+            {[10, 25, 50].map(n => (
+              <button
+                key={n}
+                onClick={() => setDecisionLimit(n)}
+                style={{
+                  fontSize: 10, padding: "2px 8px", borderRadius: 99, cursor: "pointer", border: "0.5px solid #e0e0de",
+                  background: decisionLimit === n ? "#1a1a1a" : "#f0f0ee",
+                  color:      decisionLimit === n ? "#fff"    : "#666",
+                }}
+              >{n}</button>
+            ))}
+          </div>
+        </div>
         {decisions.length === 0 ? (
           <div style={{ fontSize: 12, color: "#aaa", padding: "8px 0" }}>nenhuma decisão ainda</div>
-        ) : decisions.map((d, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: i < decisions.length - 1 ? "0.5px solid #f0f0ee" : "none" }}>
-            <span style={{ fontSize: 10, color: "#aaa", minWidth: 36 }}>{fmtTime(d.timestamp)}</span>
-            <DecisionBadge label={deltaLabel(d.delta_replicas)} />
-            <span style={{ fontSize: 10, color: "#888", flex: 1 }}>
-              cpu {d.cpu_pct.toFixed(0)}% · ram {d.ram_pct.toFixed(0)}% · rps {d.rps_pct.toFixed(0)}%
-              {" "}→ delta {d.delta_replicas >= 0 ? "+" : ""}{d.delta_replicas}
-            </span>
-            <span style={{ fontSize: 10, color: "#aaa" }}>{d.alert_level}</span>
+        ) : (
+          <div style={{ maxHeight: 260, overflowY: "auto" }}>
+            {[...decisions].reverse().map((d, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 0", borderBottom: "0.5px solid #f0f0ee" }}>
+                <span style={{ fontSize: 10, color: "#aaa", minWidth: 36 }}>{fmtTime(d.timestamp)}</span>
+                <DecisionBadge label={deltaLabel(d.delta_replicas)} />
+                <span style={{ fontSize: 10, color: "#888", flex: 1 }}>
+                  cpu {d.cpu_pct.toFixed(0)}% · ram {d.ram_pct.toFixed(0)}% · rps {d.rps_pct.toFixed(0)}%
+                  {" "}→ delta {d.delta_replicas >= 0 ? "+" : ""}{d.delta_replicas}
+                </span>
+                <span style={{ fontSize: 10, color: "#aaa" }}>{d.alert_level}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        )}
       </Card>
 
       {/* alertas */}

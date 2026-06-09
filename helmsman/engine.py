@@ -1,5 +1,5 @@
 """Motor fuzzy Mamdani com 3 entradas, 2 saídas e 18 regras."""
-
+# uv run helmsman start --host localhost --port 8003 --container helmsman-server-test --rps-per-replica 400;
 from dataclasses import dataclass
 
 import numpy as np
@@ -49,16 +49,17 @@ def _build_system() -> ctrl.ControlSystem:
         # Grupo 1 — Idle / scale down
         ctrl.Rule(cpu["baixo"] & ram["baixo"] & rps["baixo"],
                   (delta["derrubar_forte"], alerta["nenhum"])),
-        ctrl.Rule(cpu["baixo"] & ram["baixo"] & rps["moderado"],
-                  (delta["derrubar"], alerta["nenhum"])),
+        ctrl.Rule(cpu["baixo"] & ram["baixo"] & rps["moderado"],   # R2: tráfego ainda presente — mantém
+                  (delta["manter"], alerta["nenhum"])),
         ctrl.Rule(cpu["moderado"] & ram["baixo"] & rps["baixo"],
                   (delta["derrubar"], alerta["nenhum"])),
 
-        # Grupo 2 — Carga leve, não escala
+        # Grupo 2 — RPS alto respeita rps_per_replica → escala
+        # (antes "não escala"; agora: o usuário definiu o limite, se chegou em alto é hora de subir)
         ctrl.Rule(cpu["baixo"] & ram["baixo"] & rps["alto"],
-                  (delta["manter"], alerta["nenhum"])),
+                  (delta["subir"], alerta["nenhum"])),
         ctrl.Rule(cpu["baixo"] & ram["moderado"] & rps["alto"],
-                  (delta["manter"], alerta["nenhum"])),
+                  (delta["subir"], alerta["nenhum"])),
 
         # Grupo 3 — Carga real, scale up normal
         ctrl.Rule(cpu["moderado"] & ram["moderado"] & rps["alto"],
@@ -93,6 +94,16 @@ def _build_system() -> ctrl.ControlSystem:
                   (delta["derrubar_forte"], alerta["critical"])),
         ctrl.Rule(cpu["alto"] & ram["alto"] & rps["baixo"],
                   (delta["derrubar"], alerta["critical"])),
+
+        # Grupo 7 — RPS crítico com CPU/RAM baixa ou moderada
+        ctrl.Rule(cpu["baixo"] & ram["baixo"] & rps["critico"],
+                  (delta["subir"], alerta["warning"])),
+        ctrl.Rule(cpu["moderado"] & ram["baixo"] & rps["critico"],
+                  (delta["subir_forte"], alerta["warning"])),
+        ctrl.Rule(cpu["baixo"] & ram["moderado"] & rps["critico"],
+                  (delta["subir"], alerta["warning"])),
+        ctrl.Rule(cpu["moderado"] & ram["moderado"] & rps["critico"],
+                  (delta["subir_forte"], alerta["warning"])),
     ]
 
     return ctrl.ControlSystem(rules)
@@ -105,13 +116,19 @@ _system = _build_system()
 def infer(cpu_pct: float, ram_pct: float, rps_pct: float) -> FuzzyResult:
     """Roda inferência Mamdani e retorna delta_replicas e nível de alerta."""
     sim = ctrl.ControlSystemSimulation(_system)
-    sim.input["cpu_pct"] = float(np.clip(cpu_pct, 0, 100))
-    sim.input["ram_pct"] = float(np.clip(ram_pct, 0, 100))
-    sim.input["rps_pct"] = float(np.clip(rps_pct, 0, 100))
-    sim.compute()
+    # Pequeno offset evita que valores exatos em 0 ou 100 gerem área nula no centróide
+    sim.input["cpu_pct"] = float(np.clip(cpu_pct, 0.01, 99.99))
+    sim.input["ram_pct"] = float(np.clip(ram_pct, 0.01, 99.99))
+    sim.input["rps_pct"] = float(np.clip(rps_pct, 0.01, 99.99))
 
-    delta_raw = float(sim.output["delta_replicas"])
-    alert_score = float(sim.output["alerta"])
+    try:
+        sim.compute()
+        delta_raw  = float(sim.output["delta_replicas"])
+        alert_score = float(sim.output["alerta"])
+    except (KeyError, Exception):
+        # Área agregada degenerada — mantém estado atual como decisão segura
+        delta_raw  = 0.0
+        alert_score = 0.0
     delta_int = int(round(delta_raw))
 
     if alert_score <= 33:
