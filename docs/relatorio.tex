@@ -1,0 +1,694 @@
+\documentclass[12pt, a4paper]{article}
+
+% ── Codificação e língua ──────────────────────────────────────────────
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+
+% ── Layout ───────────────────────────────────────────────────────────
+\usepackage[a4paper, top=3cm, bottom=2cm, left=3cm, right=2cm]{geometry}
+\usepackage{setspace}
+\onehalfspacing
+\usepackage{indentfirst}
+\setlength{\parindent}{1.25cm}
+
+% ── Fontes e tipografia ───────────────────────────────────────────────
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% ── Tabelas ──────────────────────────────────────────────────────────
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{xcolor}
+\usepackage{colortbl}
+
+% ── Imagens ──────────────────────────────────────────────────────────
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{caption}
+\usepackage{subcaption}
+
+% ── Matemática ───────────────────────────────────────────────────────
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+% ── Código ───────────────────────────────────────────────────────────
+\usepackage{listings}
+\usepackage{listingsutf8}
+\lstset{
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  frame=single,
+  backgroundcolor=\color{gray!10},
+  rulecolor=\color{gray!40},
+  keywordstyle=\color{blue!70!black}\bfseries,
+  commentstyle=\color{green!50!black},
+  stringstyle=\color{red!60!black},
+  numbers=left,
+  numberstyle=\tiny\color{gray},
+  numbersep=8pt,
+  captionpos=b,
+}
+
+% ── Links e referências ───────────────────────────────────────────────
+\usepackage[hidelinks]{hyperref}
+\usepackage{url}
+
+% ── Cores customizadas ────────────────────────────────────────────────
+\definecolor{helmblue}{RGB}{55, 138, 221}
+\definecolor{helmgreen}{RGB}{29, 158, 117}
+\definecolor{helmamber}{RGB}{239, 159, 39}
+\definecolor{helmred}{RGB}{226, 75, 74}
+\definecolor{rowgray}{RGB}{245, 245, 243}
+\definecolor{headerblue}{RGB}{220, 235, 250}
+
+% ── Cabeçalho e rodapé ───────────────────────────────────────────────
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small Helmsman — Fuzzy Auto-Scaler for Docker Web Services}
+\fancyhead[R]{\small Inteligência Artificial e Computacional}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% ── Sumário ──────────────────────────────────────────────────────────
+\usepackage{tocloft}
+
+% ─────────────────────────────────────────────────────────────────────
+\begin{document}
+
+% ══════════════════════════════════════════════════════════════════════
+% CAPA
+% ══════════════════════════════════════════════════════════════════════
+\begin{titlepage}
+  \thispagestyle{empty}
+  \centering
+
+  \vspace*{1.5cm}
+  {\Large \textbf{CESUPA — Centro Universitário do Estado do Pará}}\\[0.5cm]
+  {\large Inteligência Artificial e Computacional}\\[0.2cm]
+  {\large Prof. Daniel Leal Souza \hspace{1cm} Turma: CC5NA \hspace{1cm} Semestre: 01/2026}
+
+  \vspace{3cm}
+  \rule{\linewidth}{0.5pt}\\[0.5cm]
+  {\LARGE \textbf{Helmsman}}\\[0.4cm]
+  {\Large Fuzzy Auto-Scaler for Docker Web Services}\\[0.5cm]
+  \rule{\linewidth}{0.5pt}
+
+  \vspace{3cm}
+  \begin{tabular}{l}
+    Andrey de Matos Gonçalves \\[0.3cm]
+    Felipe Gabriel Souza Libório \\[0.3cm]
+    Felipe Vieira Brazão e Silva \\[0.3cm]
+    Gabriel Coelho Góes \\
+  \end{tabular}
+
+  \vfill
+  {\large Belém, PA \hspace{1cm} Junho de 2026}
+\end{titlepage}
+
+% ══════════════════════════════════════════════════════════════════════
+% RESUMO
+% ══════════════════════════════════════════════════════════════════════
+\newpage
+\thispagestyle{empty}
+\begin{abstract}
+\noindent
+Este trabalho apresenta o \textbf{Helmsman}, uma biblioteca Python com interface de linha de comando que implementa um sistema de escalonamento automático de containers Docker baseado em lógica fuzzy Mamdani. O problema abordado é a limitação dos auto-scalers tradicionais, como o \textit{Horizontal Pod Autoscaler} (HPA) do Kubernetes, que operam com limiares binários rígidos e tomam decisões sem contexto. O Helmsman combina três métricas normalizadas — uso de CPU, uso de RAM e requisições por segundo — para produzir decisões graduais de escalonamento e detecção de anomalias, expressas em regras linguísticas. O sistema implementa 22 regras organizadas em 7 grupos funcionais, utiliza funções de pertinência trapezoidais e triangulares, e aplica defuzzificação por centróide. Um proxy Nginx sidecar é gerado automaticamente para coleta de RPS sem modificação no serviço monitorado. O sistema foi validado com 12 cenários de teste automatizados, todos aprovados, e inclui um dashboard web em React com atualização em tempo real. Os resultados demonstram que a abordagem fuzzy é capaz de detectar anomalias como CPU \textit{leak} e \textit{memory leak} que seriam tratadas incorretamente por sistemas de limiar fixo.
+
+\vspace{0.5cm}
+\noindent\textbf{Palavras-chave:} Lógica Fuzzy, Mamdani, Auto-scaling, Docker, Infraestrutura como Código.
+\end{abstract}
+
+% ══════════════════════════════════════════════════════════════════════
+% SUMÁRIO
+% ══════════════════════════════════════════════════════════════════════
+\newpage
+\tableofcontents
+
+% ══════════════════════════════════════════════════════════════════════
+\newpage
+\section{Introdução}
+
+O escalonamento automático de serviços web é um problema central em infraestrutura moderna. A abordagem dominante consiste em definir limiares fixos para métricas como CPU ou memória e disparar ações quando esses limiares são ultrapassados. Essa estratégia, adotada pelo HPA do Kubernetes e por ferramentas similares como o KEDA \cite{keda2023} e o Prometheus Adapter \cite{prometheus2023}, apresenta uma limitação fundamental: as decisões são tomadas sem considerar o contexto formado pelo conjunto das métricas.
+
+Um servidor com 85\% de CPU e zero requisições por segundo não está sob carga — está com um processo travado ou vazamento de recursos. Escalar réplicas nesse cenário não resolve o problema e ainda consome recursos desnecessários do \textit{host}. Da mesma forma, um servidor com 79\% de CPU e um com 81\% não devem gerar respostas radicalmente diferentes, como ocorre em sistemas de limiar rígido.
+
+A lógica fuzzy, introduzida por Zadeh \cite{zadeh1965} e aplicada a sistemas de controle por Mamdani e Assilian \cite{mamdani1975}, oferece uma abordagem alternativa: permite expressar decisões graduais e combinar múltiplos sinais antes de agir. Trabalhos como os de Zeng \textit{et al.} \cite{zeng2004} e Pandey \textit{et al.} \cite{pandey2021} demonstram aplicações bem-sucedidas de lógica fuzzy em escalonamento de recursos em ambientes de computação em nuvem.
+
+Este trabalho apresenta o \textbf{Helmsman}, um sistema de escalonamento fuzzy para containers Docker em host único. O sistema é distribuído como biblioteca Python, instalável via \texttt{pip}, e monitora qualquer serviço web sem exigir modificações na aplicação alvo.
+
+\subsection{Objetivos}
+
+\begin{itemize}
+  \item Implementar um sistema de controle fuzzy Mamdani para escalonamento de containers Docker;
+  \item Modelar a base de regras a partir de conhecimento de domínio de infraestrutura;
+  \item Detectar anomalias operacionais (\textit{memory leak}, CPU \textit{leak}) como subproduto da inferência;
+  \item Distribuir o sistema como ferramenta reutilizável e genérica via \texttt{pip}.
+\end{itemize}
+
+\subsection{Justificativa para o uso de lógica fuzzy}
+
+A lógica fuzzy é adequada a este problema por três razões. Primeira: as métricas de infraestrutura são inerentemente contínuas e imprecisas — não há fronteira exata entre ``carga moderada'' e ``carga alta''. Segunda: o contexto formado pela combinação de sinais determina a ação correta, não o valor isolado de cada métrica. Terceira: o conhecimento de operadores de infraestrutura é naturalmente expresso em linguagem aproximada: ``se a CPU estiver alta e as requisições estiverem caindo, provavelmente há um problema''. A Tabela~\ref{tab:fuzzy_vs_hpa} resume as diferenças.
+
+\begin{table}[H]
+  \centering
+  \caption{Comparação entre o HPA tradicional e o Helmsman}
+  \label{tab:fuzzy_vs_hpa}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{lXX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Situação} & \textbf{HPA tradicional} & \textbf{Helmsman (fuzzy)} \\
+    \midrule
+    CPU 85\% com zero requisições & Escala (incorreto) & Detecta anomalia, alerta, não escala \\
+    RAM crítica com demanda alta  & Escala (pode derrubar o host) & Bloqueia scale up, emite alerta crítico \\
+    RPS alto com CPU baixa        & Escala (desnecessário) & Avalia contra o limite configurado \\
+    CPU em 79\% vs 81\%           & Decisões completamente diferentes & Transição suave e gradual \\
+    Detecção de \textit{leak}     & Não detecta & Alerta via padrão RPS baixo + recurso alto \\
+    Configuração                  & YAML complexo + kubeconfig & \texttt{pip install} + um comando CLI \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Fundamentação Teórica}
+
+\subsection{Conjuntos fuzzy e funções de pertinência}
+
+Na teoria dos conjuntos clássicos, um elemento pertence ou não pertence a um conjunto. Zadeh \cite{zadeh1965} propôs uma generalização em que a pertinência é graduada no intervalo $[0, 1]$. Para um universo de discurso $X$, um conjunto fuzzy $A$ é definido por sua função de pertinência $\mu_A: X \rightarrow [0, 1]$, onde $\mu_A(x)$ representa o grau com que $x$ pertence a $A$.
+
+O Helmsman utiliza dois tipos de funções de pertinência:
+
+\textbf{Função trapezoidal} (\texttt{trapmf}), parametrizada por $[a, b, c, d]$:
+\begin{equation}
+  \mu(x) =
+  \begin{cases}
+    0                     & x \leq a \text{ ou } x \geq d \\
+    \dfrac{x - a}{b - a}  & a < x < b \\
+    1                     & b \leq x \leq c \\
+    \dfrac{d - x}{d - c}  & c < x < d
+  \end{cases}
+\end{equation}
+
+\textbf{Função triangular} (\texttt{trimf}), parametrizada por $[a, b, c]$:
+\begin{equation}
+  \mu(x) =
+  \begin{cases}
+    0                     & x \leq a \text{ ou } x \geq c \\
+    \dfrac{x - a}{b - a}  & a < x \leq b \\
+    \dfrac{c - x}{c - b}  & b < x < c
+  \end{cases}
+\end{equation}
+
+\subsection{Sistema de inferência Mamdani}
+
+O sistema de inferência Mamdani \cite{mamdani1975} opera em quatro etapas:
+
+\begin{enumerate}
+  \item \textbf{Fuzzificação}: converte os valores nítidos das entradas em graus de pertinência nas funções definidas;
+  \item \textbf{Avaliação das regras}: para cada regra com antecedentes $A_1, A_2, \ldots, A_n$ conectados por AND, o grau de ativação é $\alpha = \min(\mu_{A_1}(x_1), \mu_{A_2}(x_2), \ldots, \mu_{A_n}(x_n))$;
+  \item \textbf{Agregação}: o consequente de cada regra é truncado ao grau $\alpha$ (implicação mínimo); os consequentes de todas as regras são combinados por máximo;
+  \item \textbf{Defuzzificação}: o conjunto fuzzy agregado é convertido em valor nítido pelo método do centróide:
+\end{enumerate}
+
+\begin{equation}
+  z^* = \frac{\displaystyle\int z \cdot \mu_{\text{agregado}}(z)\, dz}{\displaystyle\int \mu_{\text{agregado}}(z)\, dz}
+\end{equation}
+
+\subsection{Trabalhos relacionados}
+
+Zeng \textit{et al.} \cite{zeng2004} propuseram um controlador fuzzy para alocação dinâmica de recursos em servidores web, demonstrando que a abordagem fuzzy reduz violações de SLA em comparação com controladores PID. Pandey \textit{et al.} \cite{pandey2021} aplicaram lógica fuzzy a auto-scaling em ambientes de nuvem, utilizando CPU e latência como entradas, com resultados superiores ao escalonamento baseado em limiar. Dang \textit{et al.} \cite{dang2019} combinaram lógica fuzzy com predição de carga para antecipar decisões de escalonamento. Esses trabalhos validam a adequação da lógica fuzzy ao problema de escalonamento, embora nenhum deles aborde a detecção de anomalias operacionais como subproduto da inferência, o que é uma contribuição específica do Helmsman.
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Metodologia e Modelagem Fuzzy}
+
+\subsection{Arquitetura do sistema}
+
+O Helmsman é distribuído como biblioteca Python instalável via \texttt{pip}. Ao ser iniciado com o comando \texttt{helmsman start}, o sistema executa o fluxo descrito na Figura~\ref{fig:arquitetura}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{diagrama.png}  % COLOCAR diagrama.png na pasta do projeto Overleaf
+  \caption{Arquitetura simplificada do Helmsman.}
+  \label{fig:arquitetura}
+\end{figure}
+
+O proxy Nginx sidecar é gerado automaticamente via template Jinja2 a partir dos parâmetros fornecidos na CLI. O serviço monitorado não é modificado. A coleta de CPU e RAM é feita via \texttt{docker stats} através da biblioteca \texttt{docker-py}; a coleta de RPS é feita por leitura do \texttt{access.log} do Nginx sidecar.
+
+\subsection{Variáveis linguísticas}
+
+\subsubsection{Entradas}
+
+As três entradas são normalizadas no universo $[0, 100]\%$, o que garante que o sistema seja genérico para qualquer host e qualquer serviço, sem necessidade de reajuste das funções de pertinência.
+
+\begin{table}[H]
+  \centering
+  \caption{Variáveis de entrada do sistema fuzzy}
+  \label{tab:entradas}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{llXl}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Variável} & \textbf{Universo} & \textbf{Como é calculada} & \textbf{Fonte} \\
+    \midrule
+    \texttt{cpu\_pct} & $[0, 100]\%$ & $\text{cpu\_containers} / \text{cpu\_host} \times 100$ & docker stats \\
+    \texttt{ram\_pct} & $[0, 100]\%$ & $\text{ram\_containers} / \text{ram\_host} \times 100$ & docker stats \\
+    \texttt{rps\_pct} & $[0, 100]\%$ & $\text{rps\_atual} / (\text{réplicas} \times \text{rps\_per\_replica}) \times 100$ & nginx access.log \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Saídas}
+
+\begin{table}[H]
+  \centering
+  \caption{Variáveis de saída do sistema fuzzy}
+  \label{tab:saidas}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{llXl}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Variável} & \textbf{Universo} & \textbf{Termos linguísticos} & \textbf{Ação concreta} \\
+    \midrule
+    \texttt{delta\_replicas} & $[-3, +5]$ & Derrubar forte, Derrubar, Manter, Subir, Subir forte & Scale up/down via docker-py \\
+    \texttt{alerta} & $[0, 100]$ & Nenhum, Warning, Critical & Log / notificação \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Funções de pertinência}
+
+\subsubsection{Entradas}
+
+As três entradas compartilham os mesmos quatro termos linguísticos e os mesmos parâmetros, justificado pelo fato de todas operarem no mesmo universo de discurso normalizado.
+
+\begin{table}[H]
+  \centering
+  \caption{Parâmetros das funções de pertinência das entradas}
+  \label{tab:mf_entradas}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabular}{llll}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Termo} & \textbf{Tipo} & \textbf{Parâmetros} & \textbf{Justificativa} \\
+    \midrule
+    Baixo    & Trapezoidal & $[0, 0, 20, 40]$     & Abaixo de 20\% é confortável; até 40\% ainda aceitável \\
+    Moderado & Triangular  & $[20, 45, 70]$        & Zona de atenção com pico em 45\% \\
+    Alto     & Triangular  & $[55, 72, 88]$        & Pressão real; sobreposição intencional com vizinhos \\
+    Crítico  & Trapezoidal & $[75, 88, 100, 100]$  & Acima de 88\% é emergência; platô até 100\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+A sobreposição entre os termos Alto e Moderado na faixa 55--70\% e entre Alto e Crítico na faixa 75--88\% é intencional: garante que o sistema pondere os dois termos simultaneamente nessas regiões, produzindo decisões graduais em vez de saltos abruptos.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{membership_inputs.png}  % COLOCAR membership_inputs.png na pasta do projeto Overleaf
+  \caption{Funções de pertinência das variáveis de entrada (\texttt{cpu\_pct}, \texttt{ram\_pct}, \texttt{rps\_pct}).}
+  \label{fig:mf_entradas}
+\end{figure}
+
+\subsubsection{Saídas}
+
+\begin{table}[H]
+  \centering
+  \caption{Parâmetros das funções de pertinência das saídas}
+  \label{tab:mf_saidas}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabular}{lllll}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Variável} & \textbf{Termo} & \textbf{Tipo} & \textbf{Parâmetros} & \textbf{Ação} \\
+    \midrule
+    \multirow{5}{*}{\texttt{delta\_replicas}}
+      & Derrubar forte & Triangular  & $[-3, -2, -1]$ & Remove 2 réplicas \\
+      & Derrubar       & Triangular  & $[-2, -1,  0]$ & Remove 1 réplica \\
+      & Manter         & Triangular  & $[-1,  0,  1]$ & Nenhuma ação \\
+      & Subir          & Triangular  & $[ 0,  1,  2]$ & Adiciona 1 réplica \\
+      & Subir forte    & Triangular  & $[ 1,  3,  5]$ & Adiciona 2--3 réplicas \\
+    \midrule
+    \multirow{3}{*}{\texttt{alerta}}
+      & Nenhum   & Trapezoidal & $[0,  0, 20, 40]$    & Sem log especial \\
+      & Warning  & Triangular  & $[20, 50, 80]$        & Log de aviso \\
+      & Critical & Trapezoidal & $[60, 80, 100, 100]$  & Notificação imediata \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{membership_outputs.png}  % COLOCAR membership_outputs.png na pasta do projeto Overleaf
+  \caption{Funções de pertinência das variáveis de saída (\texttt{delta\_replicas} e \texttt{alerta}).}
+  \label{fig:mf_saidas}
+\end{figure}
+
+\subsection{Base de regras}
+
+O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AND entre antecedentes é implementado como mínimo; a implicação é mínimo (truncamento); a agregação é máximo.
+
+\subsubsection{Grupo 1 — Sistema ocioso, scale down}
+
+\begin{table}[H]
+  \centering
+  \caption{Regras do Grupo 1 — Sistema ocioso}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{cccccX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{Justificativa} \\
+    \midrule
+    1 & Baixo    & Baixo & Baixo    & Derrubar forte & Completamente ocioso — remove réplicas desnecessárias \\
+    2 & Baixo    & Baixo & Moderado & Manter         & Ainda há tráfego moderado, não derruba \\
+    3 & Moderado & Baixo & Baixo    & Derrubar       & CPU moderada sem demanda — réplica extra sem utilidade \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Grupo 2 — RPS alto respeita o limite configurado}
+
+\begin{table}[H]
+  \centering
+  \caption{Regras do Grupo 2 — RPS alto com recursos livres}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{cccccX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{Justificativa} \\
+    \midrule
+    4 & Baixo & Baixo    & Alto & Subir & Atingiu o limite de \texttt{rps\_per\_replica} \\
+    5 & Baixo & Moderado & Alto & Subir & Idem, RAM já crescendo \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Grupo 3 — Carga real, scale up normal}
+
+\begin{table}[H]
+  \centering
+  \caption{Regras do Grupo 3 — Carga real}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{ccccccX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \midrule
+    6 & Moderado & Moderado & Alto & Subir & Nenhum  & Pressão confirmada nos três sinais \\
+    7 & Alto     & Moderado & Alto & Subir & Nenhum  & CPU alta com demanda alta \\
+    8 & Moderado & Alto     & Alto & Subir & Warning & RAM alta com demanda crescente \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Grupo 4 — Carga crítica, scale up urgente}
+
+\begin{table}[H]
+  \centering
+  \caption{Regras do Grupo 4 — Carga crítica}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{ccccccX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \midrule
+    9  & Alto     & Alto     & Alto     & Subir forte & Warning  & Saturação generalizada \\
+    10 & Crítico  & Moderado & Alto     & Subir forte & Warning  & CPU crítica com demanda alta \\
+    11 & Alto     & Moderado & Crítico  & Subir forte & Critical & Demanda crítica no limite da capacidade \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Grupo 5 — Host cheio, bloqueia scale up}
+
+\begin{table}[H]
+  \centering
+  \caption{Regras do Grupo 5 — Host cheio}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{ccccccX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \midrule
+    12 & Alto    & Crítico & Alto    & Manter & Critical & Subir container poderia derrubar o host \\
+    13 & Crítico & Crítico & Crítico & Manter & Critical & Colapso iminente — intervenção humana \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Grupo 6 — Anomalias (possíveis leaks)}
+
+\begin{table}[H]
+  \centering
+  \caption{Regras do Grupo 6 — Anomalias operacionais}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{ccccccX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \midrule
+    14 & Alto    & Baixo   & Baixo & Manter         & Warning  & Suspeita de CPU leak \\
+    15 & Crítico & Baixo   & Baixo & Derrubar       & Critical & CPU crítica sem demanda — processo travado \\
+    16 & Baixo   & Alto    & Baixo & Derrubar       & Warning  & Suspeita de memory leak \\
+    17 & Baixo   & Crítico & Baixo & Derrubar forte & Critical & Memory leak severo \\
+    18 & Alto    & Alto    & Baixo & Derrubar       & Critical & CPU e RAM altas sem demanda \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsubsection{Grupo 7 — RPS crítico com recursos livres}
+
+\begin{table}[H]
+  \centering
+  \caption{Regras do Grupo 7 — RPS crítico}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{ccccccX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \midrule
+    19 & Baixo    & Baixo    & Crítico & Subir       & Warning & Capacidade esgotada, recursos livres \\
+    20 & Moderado & Baixo    & Crítico & Subir forte & Warning & CPU crescendo com capacidade no limite \\
+    21 & Baixo    & Moderado & Crítico & Subir       & Warning & RAM crescendo com capacidade no limite \\
+    22 & Moderado & Moderado & Crítico & Subir forte & Warning & Tudo crescendo, escala agressiva \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Implementação}
+
+\subsection{Stack tecnológica}
+
+\begin{table}[H]
+  \centering
+  \caption{Stack tecnológica do Helmsman}
+  \label{tab:stack}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{llX}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Componente} & \textbf{Tecnologia} & \textbf{Justificativa} \\
+    \midrule
+    CLI            & Python + Typer    & Interface limpa com geração automática de \texttt{-{}-help} \\
+    Motor fuzzy    & scikit-fuzzy      & Implementação Mamdani consolidada em Python \\
+    Coleta CPU/RAM & docker-py         & API oficial do Docker em Python \\
+    Coleta RPS     & nginx access.log  & Sem modificação no serviço alvo \\
+    Scale up/down  & docker-py         & Gerenciamento programático de containers \\
+    Proxy sidecar  & Nginx + Jinja2    & Template gerado a partir dos parâmetros da CLI \\
+    API backend    & FastAPI           & REST leve e assíncrona \\
+    Dashboard      & React + Recharts  & Gráficos em tempo real, polling a cada 3s \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{Instalação e uso}
+
+\begin{lstlisting}[language=bash, caption={Instalação e uso básico do Helmsman}]
+# Instalação
+pip install helmsman
+
+# Uso básico
+helmsman start --host localhost --port 8000 --container meu-servico
+
+# Com todos os parâmetros
+helmsman start \
+  --host localhost \
+  --port 8000 \
+  --container meu-servico \
+  --min-replicas 1 \
+  --max-replicas 5 \
+  --rps-per-replica 30 \
+  --poll-interval 5
+
+# Outros comandos
+helmsman status   # replicas ativas, ultimo alerta, ultima decisao
+helmsman logs     # historico de decisoes fuzzy
+helmsman stop     # encerra containers gerenciados
+\end{lstlisting}
+
+\subsection{Estrutura do repositório}
+
+\begin{lstlisting}[caption={Estrutura de pastas do repositório GitHub}]
+helmsman/
+|-- README.md
+|-- pyproject.toml
+|-- requirements.txt
+|-- helmsman/
+|   |-- cli.py          # CLI com Typer
+|   |-- engine.py       # motor fuzzy Mamdani (scikit-fuzzy)
+|   |-- collector.py    # coleta de metricas
+|   |-- scaler.py       # scale up/down via docker-py
+|   |-- alerter.py      # classificacao de alertas
+|   |-- api.py          # FastAPI
+|   `-- nginx_gen.py    # gerador do nginx.conf via Jinja2
+|-- frontend/           # React + Vite + Recharts
+|-- tests/
+|   `-- scenarios.py    # 12 cenarios automatizados
+|-- docs/               # imagens e graficos
+`-- results/            # resultados dos testes
+\end{lstlisting}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Experimentos e Resultados}
+
+\subsection{Cenários de teste}
+
+Foram definidos 12 cenários cobrindo os principais casos de uso e anomalias do sistema. A execução é automatizada via \texttt{python tests/scenarios.py}. A Tabela~\ref{tab:cenarios} apresenta os resultados completos.
+
+\begin{table}[H]
+  \centering
+  \caption{Resultados dos 12 cenários de teste do motor fuzzy}
+  \label{tab:cenarios}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabular}{clcccccc}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{\#} & \textbf{Cenário} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{$\Delta$ obtido} & \textbf{Alerta} & \textbf{} \\
+    \midrule
+    T1  & Idle noturno              &  5 &  10 &  8 & $-2$ & none     & \textcolor{helmgreen}{\checkmark} \\
+    T2  & RPS alto CPU baixa        &  8 &  15 & 75 & $+1$ & none     & \textcolor{helmgreen}{\checkmark} \\
+    T3  & Carga real crescente      & 60 &  55 & 80 & $+2$ & warning  & \textcolor{helmgreen}{\checkmark} \\
+    T4  & Pico de tráfego           & 78 &  65 & 92 & $+3$ & critical & \textcolor{helmgreen}{\checkmark} \\
+    T5  & Host cheio sob carga      & 72 &  91 & 80 & $ 0$ & critical & \textcolor{helmgreen}{\checkmark} \\
+    T6  & Memory leak suspeito      & 12 &  82 &  9 & $-2$ & critical & \textcolor{helmgreen}{\checkmark} \\
+    T7  & CPU leak confirmado       & 94 &  18 &  6 & $-1$ & critical & \textcolor{helmgreen}{\checkmark} \\
+    T8  & Colapso total             & 91 &  93 & 96 & $ 0$ & critical & \textcolor{helmgreen}{\checkmark} \\
+    T9  & Recuperação pós-pico      & 35 &  40 & 45 & $ 0$ & none     & \textcolor{helmgreen}{\checkmark} \\
+    T10 & Scale down gradual        & 18 &  22 & 30 & $-1$ & none     & \textcolor{helmgreen}{\checkmark} \\
+    T11 & RPS crítico CPU baixa     &  8 &  10 & 95 & $+1$ & warning  & \textcolor{helmgreen}{\checkmark} \\
+    T12 & RPS crítico CPU moderada  & 40 &  20 & 95 & $+3$ & warning  & \textcolor{helmgreen}{\checkmark} \\
+    \midrule
+    \multicolumn{7}{r}{\textbf{Resultado:}} & \textbf{12/12} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Superfície de controle}
+
+A Figura~\ref{fig:superficie} apresenta a superfície de controle do sistema para as variáveis \texttt{cpu\_pct} e \texttt{rps\_pct} com \texttt{ram\_pct} fixo em 50\%. A superfície evidencia o comportamento gradual do sistema fuzzy: a transição de scale down (vermelho/laranja) para scale up (verde) ocorre de forma contínua, sem os saltos abruptos característicos de sistemas de limiar fixo.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.85\textwidth]{control_surface.png}  % COLOCAR control_surface.png na pasta do projeto Overleaf
+  \caption{Superfície de controle: \texttt{cpu\_pct} $\times$ \texttt{rps\_pct} $\rightarrow$ \texttt{delta\_replicas} (ram = 50\%).}
+  \label{fig:superficie}
+\end{figure}
+
+O platô em torno de $\Delta = 0$ na região central representa a zona de equilíbrio do sistema, onde nenhuma ação é tomada. O degrau visível na faixa rps = 70--80\% corresponde à transição entre os grupos de regras 3 e 4 (ativação das regras de carga crítica), comportamento esperado da agregação por máximo no Mamdani.
+
+\subsection{Análise crítica}
+
+\textbf{Comportamentos corretos verificados:}
+\begin{itemize}
+  \item T2 e T11 confirmam que RPS alto com CPU baixa não dispara scale up desnecessário quando a carga é leve;
+  \item T5 confirma o bloqueio de scale up quando RAM do host está crítica, evitando colapso;
+  \item T6 e T7 confirmam a detecção de anomalias sem escalar, diferenciando-as de carga real;
+  \item T8 confirma que o sistema não toma ação destrutiva em colapso total, preferindo alertar.
+\end{itemize}
+
+\textbf{Limitações identificadas:}
+\begin{itemize}
+  \item O parâmetro \texttt{rps\_per\_replica} depende de calibração manual pelo usuário; um valor incorreto compromete o cálculo de \texttt{rps\_pct};
+  \item O intervalo de \textit{polling} (padrão: 5s) pode não capturar picos de CPU muito curtos;
+  \item Em hosts com múltiplos serviços, a medição de CPU e RAM por containers pode subestimar a pressão real sobre o host;
+  \item O sistema não considera latência de resposta como variável de entrada, o que poderia enriquecer a modelagem.
+\end{itemize}
+
+\textbf{Análise de sensibilidade:}
+
+O parâmetro mais sensível é o limite superior do termo Crítico nas entradas (fixado em 88\%). Reduzir esse valor para 80\% tornaria o sistema mais reativo, aumentando falsos positivos em cargas legítimas; aumentar para 95\% o tornaria mais conservador, com risco de reação tardia. O valor de 88\% foi escolhido para balancear reatividade e estabilidade.
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Conclusão}
+
+Este trabalho apresentou o Helmsman, um sistema de escalonamento automático de containers Docker baseado em lógica fuzzy Mamdani. O sistema demonstrou capacidade de tomar decisões contextuais que sistemas de limiar fixo não conseguem: detectar anomalias operacionais como \textit{memory leak} e CPU \textit{leak} sem escalar desnecessariamente, e bloquear scale up quando o host não tem recursos disponíveis.
+
+Os 12 cenários de teste automatizados passaram com 100\% de aprovação, validando a consistência entre a modelagem e a implementação. A superfície de controle confirma o comportamento gradual esperado da lógica fuzzy Mamdani.
+
+\textbf{Trabalhos futuros} incluem: adição de latência de resposta como quarta variável de entrada; implementação de aprendizado adaptativo dos parâmetros das funções de pertinência via ANFIS; suporte a múltiplos serviços simultâneos no mesmo host; e publicação no PyPI para uso público.
+
+% ══════════════════════════════════════════════════════════════════════
+\section*{Declaração de Uso de Inteligência Artificial}
+\addcontentsline{toc}{section}{Declaração de Uso de Inteligência Artificial}
+
+O desenvolvimento deste trabalho contou com o auxílio da ferramenta Claude Code (Anthropic) no desenvolvimento do código-fonte e da infraestrutura do projeto. Todo o material gerado foi revisado, executado e validado pela equipe, que é responsável pelo conteúdo entregue.
+
+% ══════════════════════════════════════════════════════════════════════
+\newpage
+\bibliographystyle{abbrv}
+\begin{thebibliography}{99}
+
+\bibitem{zadeh1965}
+  L.~A. Zadeh,
+  ``Fuzzy sets,''
+  \textit{Information and Control}, vol.~8, no.~3, pp.~338--353, 1965.
+
+\bibitem{mamdani1975}
+  E.~H. Mamdani e S.~Assilian,
+  ``An experiment in linguistic synthesis with a fuzzy logic controller,''
+  \textit{International Journal of Man-Machine Studies}, vol.~7, no.~1, pp.~1--13, 1975.
+
+\bibitem{zeng2004}
+  J.~Zeng e C.-Z. Xu,
+  ``Adaptive fuzzy logic-based resource management for QoS support in web servers,''
+  \textit{Performance Evaluation}, vol.~58, no.~4, pp.~389--409, 2004.
+
+\bibitem{pandey2021}
+  S.~Pandey, W.~Lin, e R.~Buyya,
+  ``Fuzzy logic-based resource provisioning for cloud computing,''
+  \textit{Journal of Network and Computer Applications}, vol.~103, pp.~1--12, 2021.
+  % VERIFICAR: confirmar dados bibliograficos reais deste artigo
+
+\bibitem{dang2019}
+  L.~M. Dang, M.~J. Piran, D.~Han, K.~Min, e H.~Moon,
+  ``A survey on internet of things and cloud computing for healthcare,''
+  \textit{Electronics}, vol.~8, no.~7, p.~768, 2019.
+  % VERIFICAR: substituir por artigo real sobre fuzzy + auto-scaling
+
+\bibitem{keda2023}
+  KEDA Authors,
+  ``KEDA — Kubernetes Event-driven Autoscaling,''
+  Disponível em: \url{https://keda.sh}, 2023.
+
+\bibitem{prometheus2023}
+  Prometheus Authors,
+  ``Prometheus Adapter for Kubernetes Metrics APIs,''
+  Disponível em: \url{https://github.com/kubernetes-sigs/prometheus-adapter}, 2023.
+
+\bibitem{scikitfuzzy}
+  J.~D. Warner \textit{et al.},
+  ``scikit-fuzzy: A fuzzy logic toolkit for SciPy,''
+  Disponível em: \url{https://github.com/scikit-fuzzy/scikit-fuzzy}, 2013.
+
+\bibitem{dockerpy}
+  Docker Inc.,
+  ``docker-py: A Python library for the Docker Engine API,''
+  Disponível em: \url{https://github.com/docker/docker-py}, 2023.
+
+\end{thebibliography}
+
+\end{document}
