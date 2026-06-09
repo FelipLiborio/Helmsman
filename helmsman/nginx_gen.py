@@ -17,7 +17,8 @@ http {
     error_log  /var/log/nginx/error.log  warn;
 
     upstream backend {
-        server {{ upstream_host }}:{{ port }};
+        {% for server in servers %}server {{ server }};
+        {% endfor %}
     }
 
     server {
@@ -36,8 +37,7 @@ http {
 """
 
 
-def render(host: str, port: int) -> str:
-    # dentro do container nginx "localhost" aponta para ele mesmo;
-    # host.docker.internal alcança o processo no host físico
+def render(host: str, port: int, extra_servers: list | None = None) -> str:
     upstream = "host.docker.internal" if host in ("localhost", "127.0.0.1") else host
-    return Template(_TEMPLATE).render(upstream_host=upstream, port=port)
+    servers = [f"{upstream}:{port}"] + (extra_servers or [])
+    return Template(_TEMPLATE).render(servers=servers)

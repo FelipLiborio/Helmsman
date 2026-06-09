@@ -51,6 +51,7 @@ def start(
     state.poll_interval = poll_interval
     state.service_image = image
     state.service_name = container
+    state.log_dir = _LOG_DIR
     state.running = True
     state.managed_containers = [c.id]
 

@@ -58,6 +58,7 @@ class HelmsmanState:
         self.poll_interval: int = 5
         self.service_image: str = ""
         self.service_name: str = ""
+        self.log_dir: str = ""
 
         # containers gerenciados
         self.managed_containers: List[str] = []
