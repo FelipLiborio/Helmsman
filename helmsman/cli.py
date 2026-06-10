@@ -31,6 +31,7 @@ def start(
     rps_per_replica: float = typer.Option(100.0, "--rps-per-replica"),
     poll_interval: int = typer.Option(5, "--poll-interval"),
     api_port: int = typer.Option(_DEFAULT_API_PORT, "--api-port"),
+    mode: str = typer.Option("fuzzy", "--mode", help="Motor de decisão: fuzzy | ag"),
 ):
     """Inicia monitoramento e auto-scaling do serviço."""
     import docker as _docker
@@ -52,12 +53,13 @@ def start(
     state.service_image = image
     state.service_name = container
     state.log_dir = _LOG_DIR
+    state.mode = mode
     state.running = True
     state.managed_containers = [c.id]
 
     log_path = f"{_LOG_DIR}/access.log"
 
-    typer.echo(f"[helmsman] monitorando {host}:{port} (imagem: {image})")
+    typer.echo(f"[helmsman] monitorando {host}:{port} (imagem: {image})  modo={mode}")
 
     # nginx sidecar
     from .scaler import start_nginx_sidecar
@@ -115,12 +117,46 @@ def _tick() -> None:
         )
     )
 
-    result = infer(cpu_pct, ram_pct, rps_pct)
+    if state.mode == "ag":
+        from .ag_engine import evoluir, compute_alert
+        estado = {
+            "cpu_pct":         cpu_pct,
+            "ram_pct":         ram_pct,
+            "rps_real":        rps_actual,
+            "replicas_atuais": len(containers),
+            "rps_per_replica": state.rps_per_replica,
+            "min_replicas":    state.min_replicas,
+            "max_replicas":    state.max_replicas,
+        }
+        cromossomo, convergencia = evoluir(estado)
+        replicas_alvo = cromossomo[0]
+        sla_usado     = cromossomo[1]
+        delta = replicas_alvo - len(containers)
+        alert_score, alert_level = compute_alert(cpu_pct, ram_pct, rps_pct)
+        target = replicas_alvo  # já limitado por min/max dentro de evoluir
+        state.ag_last = {
+            "mode":           "ag",
+            "replicas_alvo":  replicas_alvo,
+            "sla_threshold":  sla_usado,
+            "geracoes":       50,
+            "convergencia":   convergencia,
+            "melhor_fitness": convergencia[-1] if convergencia else 0.0,
+            "estado_entrada": {
+                "cpu_pct":  cpu_pct,
+                "ram_pct":  ram_pct,
+                "rps_real": rps_actual,
+            },
+        }
+    else:
+        result = infer(cpu_pct, ram_pct, rps_pct)
+        delta = result.delta_replicas
+        alert_score = result.alert_score
+        alert_level = result.alert_level
+        target = max(
+            state.min_replicas,
+            min(state.max_replicas, len(containers) + delta),
+        )
 
-    target = max(
-        state.min_replicas,
-        min(state.max_replicas, len(containers) + result.delta_replicas),
-    )
     if target != len(containers):
         scale_to(target, state.service_image)
 
@@ -130,18 +166,17 @@ def _tick() -> None:
             cpu_pct=cpu_pct,
             ram_pct=ram_pct,
             rps_pct=rps_pct,
-            delta_raw=result.delta_raw,
-            delta_replicas=result.delta_replicas,
-            alert_score=result.alert_score,
-            alert_level=result.alert_level,
+            delta_raw=float(delta),
+            delta_replicas=int(delta),
+            alert_score=alert_score,
+            alert_level=alert_level,
         )
     )
-    emit(result.alert_level, cpu_pct, ram_pct, rps_pct)
+    emit(alert_level, cpu_pct, ram_pct, rps_pct)
 
     typer.echo(
-        f"cpu={cpu_pct:5.1f}%  ram={ram_pct:5.1f}%  rps={rps_pct:5.1f}%  "
-        f"replicas={len(containers)}→{target}  delta={result.delta_replicas:+d}  "
-        f"alert={result.alert_level}"
+        f"[{state.mode}]  cpu={cpu_pct:5.1f}%  ram={ram_pct:5.1f}%  rps={rps_pct:5.1f}%  "
+        f"replicas={len(containers)}→{target}  delta={delta:+d}  alert={alert_level}"
     )
 
 

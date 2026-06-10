@@ -29,6 +29,7 @@ export interface Status {
   replicas: number;
   max_replicas: number;
   service_name: string;
+  mode: string;
   last_alert: {
     level: string;
     message: string;
@@ -41,6 +42,20 @@ export interface Status {
     alert_score: number;
     timestamp: number;
   } | null;
+}
+
+export interface AgStatus {
+  mode: string;
+  replicas_alvo: number;
+  sla_threshold: number;
+  geracoes: number;
+  convergencia: number[];
+  melhor_fitness: number;
+  estado_entrada: {
+    cpu_pct: number;
+    ram_pct: number;
+    rps_real: number;
+  };
 }
 
 export interface HistoryPoint {
@@ -99,3 +114,4 @@ export const fetchDecisions  = (limit = 20) => get<Decision[]>("/decisions",   {
 export const fetchAlerts     = (limit = 20) => get<Alert[]>("/alerts",         { limit });
 export const fetchHttpStats  = ()           => get<HttpStats>("/http-stats");
 export const fetchHostInfo   = ()           => get<HostInfo>("/host-info");
+export const fetchAgStatus   = ()           => get<AgStatus>("/ag/status");

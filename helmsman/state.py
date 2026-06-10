@@ -59,6 +59,10 @@ class HelmsmanState:
         self.service_image: str = ""
         self.service_name: str = ""
         self.log_dir: str = ""
+        self.mode: str = "fuzzy"  # "fuzzy" | "ag"
+
+        # resultado do último ciclo AG (None no modo fuzzy)
+        self.ag_last: Optional[dict] = None
 
         # containers gerenciados
         self.managed_containers: List[str] = []

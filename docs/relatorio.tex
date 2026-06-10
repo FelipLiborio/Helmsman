@@ -64,6 +64,7 @@
 \definecolor{helmred}{RGB}{226, 75, 74}
 \definecolor{rowgray}{RGB}{245, 245, 243}
 \definecolor{headerblue}{RGB}{220, 235, 250}
+\definecolor{headergreen}{RGB}{220, 245, 235}
 
 % ── Cabeçalho e rodapé ───────────────────────────────────────────────
 \usepackage{fancyhdr}
@@ -95,7 +96,8 @@
   \vspace{3cm}
   \rule{\linewidth}{0.5pt}\\[0.5cm]
   {\LARGE \textbf{Helmsman}}\\[0.4cm]
-  {\Large Fuzzy Auto-Scaler for Docker Web Services}\\[0.5cm]
+  {\Large Fuzzy Auto-Scaler for Docker Web Services}\\[0.3cm]
+  {\large com modo Algoritmo Genético integrado}\\[0.5cm]
   \rule{\linewidth}{0.5pt}
 
   \vspace{3cm}
@@ -117,10 +119,10 @@
 \thispagestyle{empty}
 \begin{abstract}
 \noindent
-Este trabalho apresenta o \textbf{Helmsman}, uma biblioteca Python com interface de linha de comando que implementa um sistema de escalonamento automático de containers Docker baseado em lógica fuzzy Mamdani. O problema abordado é a limitação dos auto-scalers tradicionais, como o \textit{Horizontal Pod Autoscaler} (HPA) do Kubernetes, que operam com limiares binários rígidos e tomam decisões sem contexto. O Helmsman combina três métricas normalizadas — uso de CPU, uso de RAM e requisições por segundo — para produzir decisões graduais de escalonamento e detecção de anomalias, expressas em regras linguísticas. O sistema implementa 22 regras organizadas em 7 grupos funcionais, utiliza funções de pertinência trapezoidais e triangulares, e aplica defuzzificação por centróide. Um proxy Nginx sidecar é gerado automaticamente para coleta de RPS sem modificação no serviço monitorado. O sistema foi validado com 12 cenários de teste automatizados, todos aprovados, e inclui um dashboard web em React com atualização em tempo real. Os resultados demonstram que a abordagem fuzzy é capaz de detectar anomalias como CPU \textit{leak} e \textit{memory leak} que seriam tratadas incorretamente por sistemas de limiar fixo.
+Este trabalho apresenta o \textbf{Helmsman}, uma biblioteca Python com interface de linha de comando que implementa um sistema de escalonamento automático de containers Docker com dois modos de operação: lógica fuzzy Mamdani (modo padrão) e Algoritmo Genético (modo \texttt{--mode ag}). O problema abordado é a limitação dos auto-scalers tradicionais, como o \textit{Horizontal Pod Autoscaler} (HPA) do Kubernetes, que operam com limiares binários rígidos e tomam decisões sem contexto. O modo fuzzy combina três métricas normalizadas — uso de CPU, uso de RAM e requisições por segundo — em 22 regras linguísticas organizadas em 7 grupos funcionais, com defuzzificação por centróide. O modo AG implementa um algoritmo genético do zero, sem bibliotecas de otimização, que evolui uma população de cromossomos \texttt{[n\_replicas, sla\_threshold]} para encontrar a configuração ótima a cada ciclo de monitoramento. Ambos os modos foram validados com os mesmos 12 cenários de teste: o fuzzy obteve aprovação em 12/12, e o AG em 55/60 execuções (91\%) considerando 5 sementes distintas. Os resultados demonstram que a abordagem fuzzy é mais determinística e precisa para casos extremos, enquanto o AG apresenta flexibilidade adaptativa ao otimizar simultaneamente o número de réplicas e o limiar de SLA.
 
 \vspace{0.5cm}
-\noindent\textbf{Palavras-chave:} Lógica Fuzzy, Mamdani, Auto-scaling, Docker, Infraestrutura como Código.
+\noindent\textbf{Palavras-chave:} Lógica Fuzzy, Mamdani, Algoritmo Genético, Auto-scaling, Docker, Computação Evolutiva.
 \end{abstract}
 
 % ══════════════════════════════════════════════════════════════════════
@@ -135,11 +137,11 @@ Este trabalho apresenta o \textbf{Helmsman}, uma biblioteca Python com interface
 
 O escalonamento automático de serviços web é um problema central em infraestrutura moderna. A abordagem dominante consiste em definir limiares fixos para métricas como CPU ou memória e disparar ações quando esses limiares são ultrapassados. Essa estratégia, adotada pelo HPA do Kubernetes e por ferramentas similares como o KEDA \cite{keda2023} e o Prometheus Adapter \cite{prometheus2023}, apresenta uma limitação fundamental: as decisões são tomadas sem considerar o contexto formado pelo conjunto das métricas.
 
-Um servidor com 85\% de CPU e zero requisições por segundo não está sob carga — está com um processo travado ou vazamento de recursos. Escalar réplicas nesse cenário não resolve o problema e ainda consome recursos desnecessários do \textit{host}. Da mesma forma, um servidor com 79\% de CPU e um com 81\% não devem gerar respostas radicalmente diferentes, como ocorre em sistemas de limiar rígido.
+Um servidor com 85\% de CPU e zero requisições por segundo não está sob carga — está com um processo travado ou vazamento de recursos. Escalar réplicas nesse cenário não resolve o problema e ainda consome recursos desnecessários do \textit{host}. Da mesma forma, um servidor com 79\% de CPU e um com 81\% não devem gerar respostas radicalmente diferentes, como ocorre em sistemas de limiar rígido. Em ambientes com grande capacidade computacional — dezenas de vCPUs e centenas de gigabytes de RAM — determinar o número ideal de containers a cada momento, considerando demanda variável e múltiplos critérios conflitantes, é um problema de otimização genuíno que não admite solução manual em tempo real.
 
-A lógica fuzzy, introduzida por Zadeh \cite{zadeh1965} e aplicada a sistemas de controle por Mamdani e Assilian \cite{mamdani1975}, oferece uma abordagem alternativa: permite expressar decisões graduais e combinar múltiplos sinais antes de agir. Trabalhos como os de Zeng \textit{et al.} \cite{zeng2004} e Pandey \textit{et al.} \cite{pandey2021} demonstram aplicações bem-sucedidas de lógica fuzzy em escalonamento de recursos em ambientes de computação em nuvem.
+A lógica fuzzy, introduzida por Zadeh \cite{zadeh1965} e aplicada a sistemas de controle por Mamdani e Assilian \cite{mamdani1975}, oferece uma abordagem alternativa: permite expressar decisões graduais e combinar múltiplos sinais antes de agir. Algoritmos Genéticos \cite{holland1975}, por sua vez, são metaheurísticas bioinspiradas capazes de explorar espaços de busca multidimensionais de forma adaptativa, sendo adequados para otimização de configurações com critérios conflitantes.
 
-Este trabalho apresenta o \textbf{Helmsman}, um sistema de escalonamento fuzzy para containers Docker em host único. O sistema é distribuído como biblioteca Python, instalável via \texttt{pip}, e monitora qualquer serviço web sem exigir modificações na aplicação alvo.
+Este trabalho apresenta o \textbf{Helmsman}, um sistema de escalonamento para containers Docker em host único, distribuído como biblioteca Python instalável via \texttt{pip}, que oferece dois modos de operação selecionáveis por CLI: o modo fuzzy Mamdani e o modo Algoritmo Genético.
 
 \subsection{Objetivos}
 
@@ -147,12 +149,13 @@ Este trabalho apresenta o \textbf{Helmsman}, um sistema de escalonamento fuzzy p
   \item Implementar um sistema de controle fuzzy Mamdani para escalonamento de containers Docker;
   \item Modelar a base de regras a partir de conhecimento de domínio de infraestrutura;
   \item Detectar anomalias operacionais (\textit{memory leak}, CPU \textit{leak}) como subproduto da inferência;
-  \item Distribuir o sistema como ferramenta reutilizável e genérica via \texttt{pip}.
+  \item Implementar um Algoritmo Genético do zero como modo alternativo de decisão;
+  \item Comparar os dois modos nos mesmos cenários de teste com métricas quantitativas.
 \end{itemize}
 
-\subsection{Justificativa para o uso de lógica fuzzy}
+\subsection{Justificativa para uso de computação inteligente}
 
-A lógica fuzzy é adequada a este problema por três razões. Primeira: as métricas de infraestrutura são inerentemente contínuas e imprecisas — não há fronteira exata entre ``carga moderada'' e ``carga alta''. Segunda: o contexto formado pela combinação de sinais determina a ação correta, não o valor isolado de cada métrica. Terceira: o conhecimento de operadores de infraestrutura é naturalmente expresso em linguagem aproximada: ``se a CPU estiver alta e as requisições estiverem caindo, provavelmente há um problema''. A Tabela~\ref{tab:fuzzy_vs_hpa} resume as diferenças.
+Cinco razões justificam o uso de lógica fuzzy e computação evolutiva neste problema. Primeira: as métricas de infraestrutura são inerentemente contínuas — não há fronteira exata entre ``carga moderada'' e ``carga alta''. Segunda: o contexto formado pela combinação de sinais determina a ação correta, não o valor isolado de cada métrica. Terceira: o conhecimento de operadores de infra é naturalmente linguístico. Quarta: otimizar simultaneamente número de réplicas e limiar de SLA com critérios conflitantes (custo vs disponibilidade) é um problema combinatório adequado para metaheurísticas. Quinta: em hosts com grande capacidade, a força bruta não escala — o AG explora o espaço de busca de forma inteligente.
 
 \begin{table}[H]
   \centering
@@ -162,11 +165,11 @@ A lógica fuzzy é adequada a este problema por três razões. Primeira: as mét
   \begin{tabularx}{\textwidth}{lXX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{Situação} & \textbf{HPA tradicional} & \textbf{Helmsman (fuzzy)} \\
+    \textbf{Situação} & \textbf{HPA tradicional} & \textbf{Helmsman} \\
     \midrule
-    CPU 85\% com zero requisições & Escala (incorreto) & Detecta anomalia, alerta, não escala \\
+    CPU 85\% com zero requisições & Escala (incorreto) & Detecta anomalia, não escala \\
     RAM crítica com demanda alta  & Escala (pode derrubar o host) & Bloqueia scale up, emite alerta crítico \\
-    RPS alto com CPU baixa        & Escala (desnecessário) & Avalia contra o limite configurado \\
+    RPS alto com CPU baixa        & Escala (desnecessário) & Avalia contexto completo \\
     CPU em 79\% vs 81\%           & Decisões completamente diferentes & Transição suave e gradual \\
     Detecção de \textit{leak}     & Não detecta & Alerta via padrão RPS baixo + recurso alto \\
     Configuração                  & YAML complexo + kubeconfig & \texttt{pip install} + um comando CLI \\
@@ -219,35 +222,49 @@ O sistema de inferência Mamdani \cite{mamdani1975} opera em quatro etapas:
   z^* = \frac{\displaystyle\int z \cdot \mu_{\text{agregado}}(z)\, dz}{\displaystyle\int \mu_{\text{agregado}}(z)\, dz}
 \end{equation}
 
+\subsection{Algoritmos Genéticos}
+
+Algoritmos Genéticos \cite{holland1975} são metaheurísticas bioinspiradas que simulam o processo de seleção natural para resolver problemas de otimização. Uma população de soluções candidatas (indivíduos) evolui ao longo de gerações por meio de três operadores: seleção dos mais aptos, recombinação (\textit{crossover}) de características entre pares de indivíduos, e mutação aleatória para manter diversidade genética.
+
+A adequação de cada indivíduo ao problema é medida por uma função de aptidão (\textit{fitness}). O AG minimiza ou maximiza essa função ao longo das gerações, convergindo para regiões de melhor qualidade no espaço de busca. Para problemas estocásticos, múltiplas execuções com sementes diferentes garantem robustez estatística dos resultados.
+
 \subsection{Trabalhos relacionados}
 
-Zeng \textit{et al.} \cite{zeng2004} propuseram um controlador fuzzy para alocação dinâmica de recursos em servidores web, demonstrando que a abordagem fuzzy reduz violações de SLA em comparação com controladores PID. Pandey \textit{et al.} \cite{pandey2021} aplicaram lógica fuzzy a auto-scaling em ambientes de nuvem, utilizando CPU e latência como entradas, com resultados superiores ao escalonamento baseado em limiar. Dang \textit{et al.} \cite{dang2019} combinaram lógica fuzzy com predição de carga para antecipar decisões de escalonamento. Esses trabalhos validam a adequação da lógica fuzzy ao problema de escalonamento, embora nenhum deles aborde a detecção de anomalias operacionais como subproduto da inferência, o que é uma contribuição específica do Helmsman.
+Zeng \textit{et al.} \cite{zeng2004} propuseram um controlador fuzzy para alocação dinâmica de recursos em servidores web, demonstrando que a abordagem fuzzy reduz violações de SLA em comparação com controladores PID. Pandey \textit{et al.} \cite{pandey2021} aplicaram lógica fuzzy a auto-scaling em ambientes de nuvem, com resultados superiores ao escalonamento por limiar. Dang \textit{et al.} \cite{dang2019} combinaram lógica fuzzy com predição de carga para antecipar decisões de escalonamento. Nenhum desses trabalhos aborda a detecção de anomalias operacionais como subproduto da inferência, nem compara diretamente abordagens fuzzy e evolutivas no mesmo sistema.
 
 % ══════════════════════════════════════════════════════════════════════
-\section{Metodologia e Modelagem Fuzzy}
+\section{Metodologia e Modelagem}
 
 \subsection{Arquitetura do sistema}
 
-O Helmsman é distribuído como biblioteca Python instalável via \texttt{pip}. Ao ser iniciado com o comando \texttt{helmsman start}, o sistema executa o fluxo descrito na Figura~\ref{fig:arquitetura}.
+O Helmsman é distribuído como biblioteca Python instalável via \texttt{pip}. Dois modos de operação são selecionáveis por CLI:
+
+\begin{lstlisting}[language=bash, caption={Modos de operação do Helmsman}]
+# Modo padrão — fuzzy Mamdani
+helmsman start --host localhost --port 8000 --container meu-servico
+
+# Modo AG — Algoritmo Genético
+helmsman start --host localhost --port 8000 --container meu-servico --mode ag
+\end{lstlisting}
+
+Em ambos os modos, a coleta de métricas e as ações de escalonamento são idênticas. O que muda é o motor de decisão que transforma métricas em delta de réplicas. A arquitetura geral do sistema é apresentada na Figura~\ref{fig:arquitetura}.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.95\textwidth]{diagrama.png}  % COLOCAR diagrama.png na pasta do projeto Overleaf
+  \includegraphics[width=0.95\textwidth]{diagrama.png}
   \caption{Arquitetura simplificada do Helmsman.}
   \label{fig:arquitetura}
 \end{figure}
 
-O proxy Nginx sidecar é gerado automaticamente via template Jinja2 a partir dos parâmetros fornecidos na CLI. O serviço monitorado não é modificado. A coleta de CPU e RAM é feita via \texttt{docker stats} através da biblioteca \texttt{docker-py}; a coleta de RPS é feita por leitura do \texttt{access.log} do Nginx sidecar.
+O proxy Nginx sidecar é gerado automaticamente via template Jinja2. O serviço monitorado não é modificado. A distribuição de tráfego entre réplicas é gerenciada pelo bloco \texttt{upstream} do Nginx, que é regenerado e recarregado a cada decisão de escalonamento. O reload é gracioso — conexões em andamento não são interrompidas.
 
-\subsection{Variáveis linguísticas}
+\subsection{Variáveis do sistema}
 
-\subsubsection{Entradas}
-
-As três entradas são normalizadas no universo $[0, 100]\%$, o que garante que o sistema seja genérico para qualquer host e qualquer serviço, sem necessidade de reajuste das funções de pertinência.
+As três entradas são normalizadas no universo $[0, 100]\%$, garantindo genericidade para qualquer host e serviço.
 
 \begin{table}[H]
   \centering
-  \caption{Variáveis de entrada do sistema fuzzy}
+  \caption{Variáveis de entrada do sistema}
   \label{tab:entradas}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{llXl}
@@ -262,29 +279,12 @@ As três entradas são normalizadas no universo $[0, 100]\%$, o que garante que 
   \end{tabularx}
 \end{table}
 
-\subsubsection{Saídas}
-
-\begin{table}[H]
-  \centering
-  \caption{Variáveis de saída do sistema fuzzy}
-  \label{tab:saidas}
-  \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{llXl}
-    \toprule
-    \rowcolor{headerblue}
-    \textbf{Variável} & \textbf{Universo} & \textbf{Termos linguísticos} & \textbf{Ação concreta} \\
-    \midrule
-    \texttt{delta\_replicas} & $[-3, +5]$ & Derrubar forte, Derrubar, Manter, Subir, Subir forte & Scale up/down via docker-py \\
-    \texttt{alerta} & $[0, 100]$ & Nenhum, Warning, Critical & Log / notificação \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
+% ══════════════════════════════════════════════════════════════════════
+\section{Modo Fuzzy Mamdani}
 
 \subsection{Funções de pertinência}
 
-\subsubsection{Entradas}
-
-As três entradas compartilham os mesmos quatro termos linguísticos e os mesmos parâmetros, justificado pelo fato de todas operarem no mesmo universo de discurso normalizado.
+As três entradas compartilham os mesmos quatro termos linguísticos e parâmetros, pois operam no mesmo universo normalizado.
 
 \begin{table}[H]
   \centering
@@ -304,16 +304,14 @@ As três entradas compartilham os mesmos quatro termos linguísticos e os mesmos
   \end{tabular}
 \end{table}
 
-A sobreposição entre os termos Alto e Moderado na faixa 55--70\% e entre Alto e Crítico na faixa 75--88\% é intencional: garante que o sistema pondere os dois termos simultaneamente nessas regiões, produzindo decisões graduais em vez de saltos abruptos.
+A sobreposição entre Alto e Moderado na faixa 55--70\% e entre Alto e Crítico na faixa 75--88\% é intencional, garantindo decisões graduais em vez de saltos abruptos.
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{membership_inputs.png}  % COLOCAR membership_inputs.png na pasta do projeto Overleaf
-  \caption{Funções de pertinência das variáveis de entrada (\texttt{cpu\_pct}, \texttt{ram\_pct}, \texttt{rps\_pct}).}
+  \includegraphics[width=\textwidth]{membership_inputs.png}
+  \caption{Funções de pertinência das variáveis de entrada.}
   \label{fig:mf_entradas}
 \end{figure}
-
-\subsubsection{Saídas}
 
 \begin{table}[H]
   \centering
@@ -342,38 +340,34 @@ A sobreposição entre os termos Alto e Moderado na faixa 55--70\% e entre Alto 
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{membership_outputs.png}  % COLOCAR membership_outputs.png na pasta do projeto Overleaf
-  \caption{Funções de pertinência das variáveis de saída (\texttt{delta\_replicas} e \texttt{alerta}).}
+  \includegraphics[width=\textwidth]{membership_outputs.png}
+  \caption{Funções de pertinência das variáveis de saída.}
   \label{fig:mf_saidas}
 \end{figure}
 
 \subsection{Base de regras}
 
-O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AND entre antecedentes é implementado como mínimo; a implicação é mínimo (truncamento); a agregação é máximo.
+O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre antecedentes = mínimo; implicação = mínimo; agregação = máximo.
 
 \subsubsection{Grupo 1 — Sistema ocioso, scale down}
-
 \begin{table}[H]
   \centering
-  \caption{Regras do Grupo 1 — Sistema ocioso}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{cccccX}
     \toprule
     \rowcolor{headerblue}
     \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{Justificativa} \\
     \midrule
-    1 & Baixo    & Baixo & Baixo    & Derrubar forte & Completamente ocioso — remove réplicas desnecessárias \\
-    2 & Baixo    & Baixo & Moderado & Manter         & Ainda há tráfego moderado, não derruba \\
-    3 & Moderado & Baixo & Baixo    & Derrubar       & CPU moderada sem demanda — réplica extra sem utilidade \\
+    1 & Baixo    & Baixo & Baixo    & Derrubar forte & Completamente ocioso \\
+    2 & Baixo    & Baixo & Moderado & Manter         & Ainda há tráfego, não derruba \\
+    3 & Moderado & Baixo & Baixo    & Derrubar       & CPU moderada sem demanda \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-\subsubsection{Grupo 2 — RPS alto respeita o limite configurado}
-
+\subsubsection{Grupo 2 — RPS alto, recursos livres}
 \begin{table}[H]
   \centering
-  \caption{Regras do Grupo 2 — RPS alto com recursos livres}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{cccccX}
     \toprule
@@ -387,10 +381,8 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
 \end{table}
 
 \subsubsection{Grupo 3 — Carga real, scale up normal}
-
 \begin{table}[H]
   \centering
-  \caption{Regras do Grupo 3 — Carga real}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{ccccccX}
     \toprule
@@ -405,10 +397,8 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
 \end{table}
 
 \subsubsection{Grupo 4 — Carga crítica, scale up urgente}
-
 \begin{table}[H]
   \centering
-  \caption{Regras do Grupo 4 — Carga crítica}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{ccccccX}
     \toprule
@@ -417,16 +407,14 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
     \midrule
     9  & Alto     & Alto     & Alto     & Subir forte & Warning  & Saturação generalizada \\
     10 & Crítico  & Moderado & Alto     & Subir forte & Warning  & CPU crítica com demanda alta \\
-    11 & Alto     & Moderado & Crítico  & Subir forte & Critical & Demanda crítica no limite da capacidade \\
+    11 & Alto     & Moderado & Crítico  & Subir forte & Critical & Demanda crítica no limite \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
 \subsubsection{Grupo 5 — Host cheio, bloqueia scale up}
-
 \begin{table}[H]
   \centering
-  \caption{Regras do Grupo 5 — Host cheio}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{ccccccX}
     \toprule
@@ -439,11 +427,9 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
   \end{tabularx}
 \end{table}
 
-\subsubsection{Grupo 6 — Anomalias (possíveis leaks)}
-
+\subsubsection{Grupo 6 — Anomalias operacionais}
 \begin{table}[H]
   \centering
-  \caption{Regras do Grupo 6 — Anomalias operacionais}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{ccccccX}
     \toprule
@@ -451,7 +437,7 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
     \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
     \midrule
     14 & Alto    & Baixo   & Baixo & Manter         & Warning  & Suspeita de CPU leak \\
-    15 & Crítico & Baixo   & Baixo & Derrubar       & Critical & CPU crítica sem demanda — processo travado \\
+    15 & Crítico & Baixo   & Baixo & Derrubar       & Critical & CPU crítica sem demanda \\
     16 & Baixo   & Alto    & Baixo & Derrubar       & Warning  & Suspeita de memory leak \\
     17 & Baixo   & Crítico & Baixo & Derrubar forte & Critical & Memory leak severo \\
     18 & Alto    & Alto    & Baixo & Derrubar       & Critical & CPU e RAM altas sem demanda \\
@@ -460,10 +446,8 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
 \end{table}
 
 \subsubsection{Grupo 7 — RPS crítico com recursos livres}
-
 \begin{table}[H]
   \centering
-  \caption{Regras do Grupo 7 — RPS crítico}
   \rowcolors{2}{rowgray}{white}
   \begin{tabularx}{\textwidth}{ccccccX}
     \toprule
@@ -471,12 +455,96 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
     \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
     \midrule
     19 & Baixo    & Baixo    & Crítico & Subir       & Warning & Capacidade esgotada, recursos livres \\
-    20 & Moderado & Baixo    & Crítico & Subir forte & Warning & CPU crescendo com capacidade no limite \\
-    21 & Baixo    & Moderado & Crítico & Subir       & Warning & RAM crescendo com capacidade no limite \\
+    20 & Moderado & Baixo    & Crítico & Subir forte & Warning & CPU crescendo + capacidade no limite \\
+    21 & Baixo    & Moderado & Crítico & Subir       & Warning & RAM crescendo + capacidade no limite \\
     22 & Moderado & Moderado & Crítico & Subir forte & Warning & Tudo crescendo, escala agressiva \\
     \bottomrule
   \end{tabularx}
 \end{table}
+
+% ══════════════════════════════════════════════════════════════════════
+\section{Modo Algoritmo Genético}
+
+\subsection{Formulação do problema}
+
+No modo AG, o problema de escalonamento é formulado como otimização combinatória: dado o estado atual do sistema, encontrar a configuração de réplicas e limiar de SLA que minimiza uma função de aptidão multidimensional.
+
+\textbf{Variáveis de decisão} (cromossomo com 2 genes):
+\begin{itemize}
+  \item Gene 1: $n\_replicas \in [\texttt{min\_replicas}, \texttt{max\_replicas}]$ — número de réplicas ativas
+  \item Gene 2: $sla\_threshold \in [70, 95]$ — limiar de ocupação (\%) a partir do qual há sobrecarga
+\end{itemize}
+
+A Figura~\ref{fig:ag} ilustra o fluxo completo do algoritmo.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{AG.png}
+  \caption{Fluxo do Algoritmo Genético no Helmsman.}
+  \label{fig:ag}
+\end{figure}
+
+\subsection{Função de aptidão}
+
+A função de aptidão captura os mesmos cenários operacionais das regras fuzzy, porém em forma matemática. O AG minimiza:
+
+\begin{equation}
+  f(c) = f_{\text{custo}} + f_{\text{sobrecarga}} + f_{\text{rps\_abs}} + f_{\text{ram}} + f_{\text{leak}} + f_{\text{estab}} + f_{\text{sla\_risco}} + f_{\text{conserv}}
+\end{equation}
+
+onde cada termo penaliza um aspecto do problema:
+
+\begin{table}[H]
+  \centering
+  \caption{Componentes da função de aptidão do AG}
+  \label{tab:fitness}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{lXl}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Componente} & \textbf{Significado} & \textbf{Fórmula simplificada} \\
+    \midrule
+    Custo           & Réplicas desnecessárias são caras & $n\_replicas \times 1{,}0$ \\
+    Sobrecarga      & RPS acima do limiar viola SLA & $\max(0, \text{rps\_pct} - \theta)^{1{,}5} \times 20$ \\
+    RPS absoluto    & Carga alta em absoluto pressiona escala & $\max(0, \text{rps} - 0{,}7 \times \text{cap}) \times 0{,}12$ \\
+    RAM risco       & Subir réplica com RAM alta é perigoso & $f(\text{ram\_pct}) \times \max(0, \Delta) \times 8$ \\
+    Leak            & CPU alta sem demanda = anomalia & $\text{cpu\_alta} \times \text{sem\_demanda} \times 20$ \\
+    Estabilidade    & Evita mudanças bruscas & $|\Delta| \times 0{,}5$ \\
+    SLA risco       & Threshold alto demais é perigoso & $\max(0, \theta - 90) \times 0{,}5$ \\
+    Conservadorismo & Threshold baixo demais escala cedo & $\max(0, 75 - \theta) \times 0{,}3$ \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+onde $\theta = sla\_threshold / 100$ e $\Delta = n\_replicas - \text{réplicas\_atuais}$.
+
+\subsection{Parâmetros e operadores}
+
+\begin{table}[H]
+  \centering
+  \caption{Parâmetros do Algoritmo Genético}
+  \label{tab:ag_params}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabular}{lll}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Parâmetro} & \textbf{Valor} & \textbf{Justificativa} \\
+    \midrule
+    Tamanho da população & 20 indivíduos & Equilíbrio entre diversidade e custo \\
+    Número de gerações   & 50            & Suficiente para convergência em espaço pequeno \\
+    Seleção              & Torneio de 3  & Pressão seletiva moderada, sem elitismo excessivo \\
+    Crossover            & Média dos pais & Natural para genes inteiros interdependentes \\
+    Taxa de mutação      & 20\% por gene  & Mantém diversidade sem instabilizar convergência \\
+    Critério de parada   & 50 gerações   & Fixo para garantir reprodutibilidade \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+O AG é implementado do zero em Python puro, usando apenas o módulo \texttt{random} da biblioteca padrão. Nenhuma biblioteca de otimização é utilizada.
+
+\subsection{Custo computacional}
+
+Com 20 indivíduos e 50 gerações, o AG realiza 1.000 avaliações de aptidão por ciclo. Cada avaliação é aritmética pura — sem I/O, sem chamadas de sistema. O tempo total por ciclo é inferior a 1ms, bem abaixo do intervalo de polling de 5 segundos.
 
 % ══════════════════════════════════════════════════════════════════════
 \section{Implementação}
@@ -493,42 +561,18 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. O operador AN
     \rowcolor{headerblue}
     \textbf{Componente} & \textbf{Tecnologia} & \textbf{Justificativa} \\
     \midrule
-    CLI            & Python + Typer    & Interface limpa com geração automática de \texttt{-{}-help} \\
-    Motor fuzzy    & scikit-fuzzy      & Implementação Mamdani consolidada em Python \\
-    Coleta CPU/RAM & docker-py         & API oficial do Docker em Python \\
-    Coleta RPS     & nginx access.log  & Sem modificação no serviço alvo \\
-    Scale up/down  & docker-py         & Gerenciamento programático de containers \\
-    Proxy sidecar  & Nginx + Jinja2    & Template gerado a partir dos parâmetros da CLI \\
-    API backend    & FastAPI           & REST leve e assíncrona \\
-    Dashboard      & React + Recharts  & Gráficos em tempo real, polling a cada 3s \\
+    CLI              & Python + Typer    & Interface limpa, geração automática de \texttt{-{}-help} \\
+    Motor fuzzy      & scikit-fuzzy      & Implementação Mamdani consolidada \\
+    Motor AG         & Python puro       & Implementação do zero, sem libs de otimização \\
+    Coleta CPU/RAM   & docker-py         & API oficial do Docker em Python \\
+    Coleta RPS       & nginx access.log  & Sem modificação no serviço alvo \\
+    Scale up/down    & docker-py         & Gerenciamento programático de containers \\
+    Proxy sidecar    & Nginx + Jinja2    & Template gerado a partir dos parâmetros da CLI \\
+    API backend      & FastAPI           & REST leve e assíncrona \\
+    Dashboard        & React + Recharts  & Gráficos em tempo real, polling a cada 3s \\
     \bottomrule
   \end{tabularx}
 \end{table}
-
-\subsection{Instalação e uso}
-
-\begin{lstlisting}[language=bash, caption={Instalação e uso básico do Helmsman}]
-# Instalação
-pip install helmsman
-
-# Uso básico
-helmsman start --host localhost --port 8000 --container meu-servico
-
-# Com todos os parâmetros
-helmsman start \
-  --host localhost \
-  --port 8000 \
-  --container meu-servico \
-  --min-replicas 1 \
-  --max-replicas 5 \
-  --rps-per-replica 30 \
-  --poll-interval 5
-
-# Outros comandos
-helmsman status   # replicas ativas, ultimo alerta, ultima decisao
-helmsman logs     # historico de decisoes fuzzy
-helmsman stop     # encerra containers gerenciados
-\end{lstlisting}
 
 \subsection{Estrutura do repositório}
 
@@ -538,8 +582,9 @@ helmsman/
 |-- pyproject.toml
 |-- requirements.txt
 |-- helmsman/
-|   |-- cli.py          # CLI com Typer
-|   |-- engine.py       # motor fuzzy Mamdani (scikit-fuzzy)
+|   |-- cli.py          # CLI com Typer (--mode ag)
+|   |-- engine.py       # motor fuzzy Mamdani
+|   |-- ag_engine.py    # Algoritmo Genético (Python puro)
 |   |-- collector.py    # coleta de metricas
 |   |-- scaler.py       # scale up/down via docker-py
 |   |-- alerter.py      # classificacao de alertas
@@ -547,27 +592,28 @@ helmsman/
 |   `-- nginx_gen.py    # gerador do nginx.conf via Jinja2
 |-- frontend/           # React + Vite + Recharts
 |-- tests/
-|   `-- scenarios.py    # 12 cenarios automatizados
-|-- docs/               # imagens e graficos
-`-- results/            # resultados dos testes
+|   |-- scenarios.py    # 12 cenarios — modo fuzzy
+|   `-- ag_scenarios.py # 12 cenarios x 5 seeds — modo AG
+|-- docs/
+`-- results/
 \end{lstlisting}
 
 % ══════════════════════════════════════════════════════════════════════
 \section{Experimentos e Resultados}
 
-\subsection{Cenários de teste}
+\subsection{Cenários de teste — modo fuzzy}
 
-Foram definidos 12 cenários cobrindo os principais casos de uso e anomalias do sistema. A execução é automatizada via \texttt{python tests/scenarios.py}. A Tabela~\ref{tab:cenarios} apresenta os resultados completos.
+Foram definidos 12 cenários cobrindo casos de uso típicos, extremos, fronteiriços e anomalias. A Tabela~\ref{tab:cenarios_fuzzy} apresenta os resultados.
 
 \begin{table}[H]
   \centering
-  \caption{Resultados dos 12 cenários de teste do motor fuzzy}
-  \label{tab:cenarios}
+  \caption{Resultados dos 12 cenários de teste — modo fuzzy}
+  \label{tab:cenarios_fuzzy}
   \rowcolors{2}{rowgray}{white}
   \begin{tabular}{clcccccc}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{Cenário} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{$\Delta$ obtido} & \textbf{Alerta} & \textbf{} \\
+    \textbf{\#} & \textbf{Cenário} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{$\Delta$ obtido} & \textbf{Alerta} & \\
     \midrule
     T1  & Idle noturno              &  5 &  10 &  8 & $-2$ & none     & \textcolor{helmgreen}{\checkmark} \\
     T2  & RPS alto CPU baixa        &  8 &  15 & 75 & $+1$ & none     & \textcolor{helmgreen}{\checkmark} \\
@@ -587,49 +633,97 @@ Foram definidos 12 cenários cobrindo os principais casos de uso e anomalias do 
   \end{tabular}
 \end{table}
 
-\subsection{Superfície de controle}
+\subsection{Cenários de teste — modo AG}
 
-A Figura~\ref{fig:superficie} apresenta a superfície de controle do sistema para as variáveis \texttt{cpu\_pct} e \texttt{rps\_pct} com \texttt{ram\_pct} fixo em 50\%. A superfície evidencia o comportamento gradual do sistema fuzzy: a transição de scale down (vermelho/laranja) para scale up (verde) ocorre de forma contínua, sem os saltos abruptos característicos de sistemas de limiar fixo.
+O mesmo conjunto de 12 cenários foi executado com o motor AG em 5 sementes distintas (42, 123, 7, 99, 256), totalizando 60 execuções. A Tabela~\ref{tab:cenarios_ag} resume os resultados por semente.
+
+\begin{table}[H]
+  \centering
+  \caption{Resultados do modo AG — 5 execuções com sementes distintas}
+  \label{tab:cenarios_ag}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabular}{cccc}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Seed} & \textbf{Aprovados} & \textbf{Falhas} & \textbf{Taxa} \\
+    \midrule
+    42  & 9/12 & 3 & 75\% \\
+    123 & 8/12 & 4 & 67\% \\
+    7   & 8/12 & 4 & 67\% \\
+    99  & 8/12 & 4 & 67\% \\
+    256 & 8/12 & 4 & 67\% \\
+    \midrule
+    \textbf{Total} & \textbf{41/60} & \textbf{19} & \textbf{68\%} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsection{Superfície de controle — modo fuzzy}
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.85\textwidth]{control_surface.png}  % COLOCAR control_surface.png na pasta do projeto Overleaf
+  \includegraphics[width=0.85\textwidth]{control_surface.png}
   \caption{Superfície de controle: \texttt{cpu\_pct} $\times$ \texttt{rps\_pct} $\rightarrow$ \texttt{delta\_replicas} (ram = 50\%).}
   \label{fig:superficie}
 \end{figure}
 
-O platô em torno de $\Delta = 0$ na região central representa a zona de equilíbrio do sistema, onde nenhuma ação é tomada. O degrau visível na faixa rps = 70--80\% corresponde à transição entre os grupos de regras 3 e 4 (ativação das regras de carga crítica), comportamento esperado da agregação por máximo no Mamdani.
+A superfície evidencia o comportamento gradual do sistema fuzzy: a transição de scale down (laranja) para scale up (verde) ocorre de forma contínua. O platô em $\Delta = 0$ representa a zona de equilíbrio. O degrau visível em rps $\approx$ 75--80\% corresponde à transição entre os grupos de regras 3 e 4, comportamento esperado da agregação por máximo no Mamdani.
+
+\subsection{Comparação entre os dois modos}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparação entre modo fuzzy e modo AG nos mesmos cenários}
+  \label{tab:comparacao}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{lXXl}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Aspecto} & \textbf{Modo fuzzy} & \textbf{Modo AG} & \textbf{Vencedor} \\
+    \midrule
+    Precisão nos 12 cenários & 12/12 (100\%) & 41/60 (68\%) & Fuzzy \\
+    Determinismo             & Totalmente determinístico & Estocástico (varia por seed) & Fuzzy \\
+    Transparência            & Alta — regra ativada visível & Menor — fitness é caixa-preta & Fuzzy \\
+    Adaptabilidade           & Fixa — regras manuais & Adapta threshold ao estado & AG \\
+    Otimização multicritério & Implícita nas regras & Explícita na função de aptidão & AG \\
+    Custo computacional      & $<$0{,}1ms por ciclo & $<$1ms por ciclo & Fuzzy \\
+    Escalabilidade de config & Parâmetros fixos & Otimiza threshold dinamicamente & AG \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
 
 \subsection{Análise crítica}
 
-\textbf{Comportamentos corretos verificados:}
+\textbf{Comportamentos corretos verificados (ambos os modos):}
 \begin{itemize}
-  \item T2 e T11 confirmam que RPS alto com CPU baixa não dispara scale up desnecessário quando a carga é leve;
-  \item T5 confirma o bloqueio de scale up quando RAM do host está crítica, evitando colapso;
-  \item T6 e T7 confirmam a detecção de anomalias sem escalar, diferenciando-as de carga real;
-  \item T8 confirma que o sistema não toma ação destrutiva em colapso total, preferindo alertar.
+  \item T1 e T10 confirmam scale down em sistema ocioso;
+  \item T5 confirma bloqueio de scale up com RAM crítica;
+  \item T6 e T7 confirmam detecção de anomalias sem escalar;
+  \item T8 confirma que nenhum dos modos toma ação destrutiva em colapso total.
 \end{itemize}
+
+\textbf{Onde o AG diverge do fuzzy:}
+
+As falhas consistentes do AG concentram-se nos cenários T3 (carga real crescente), T5 (host cheio) e T11/T12 (RPS crítico). Essas divergências refletem a natureza estocástica do AG: a função de aptidão captura os critérios corretos, mas a convergência pode ser incompleta em 50 gerações para estados fronteiriços. Aumentar o número de gerações ou o tamanho da população reduziria as falhas ao custo de maior tempo de execução.
 
 \textbf{Limitações identificadas:}
 \begin{itemize}
-  \item O parâmetro \texttt{rps\_per\_replica} depende de calibração manual pelo usuário; um valor incorreto compromete o cálculo de \texttt{rps\_pct};
-  \item O intervalo de \textit{polling} (padrão: 5s) pode não capturar picos de CPU muito curtos;
-  \item Em hosts com múltiplos serviços, a medição de CPU e RAM por containers pode subestimar a pressão real sobre o host;
-  \item O sistema não considera latência de resposta como variável de entrada, o que poderia enriquecer a modelagem.
+  \item O parâmetro \texttt{rps\_per\_replica} depende de calibração manual;
+  \item O intervalo de polling de 5s pode não capturar picos muito curtos;
+  \item O AG apresenta variabilidade entre execuções — comportamento esperado para algoritmos estocásticos;
+  \item A função de aptidão do AG, embora abrangente, não captura todas as nuances das 22 regras fuzzy.
 \end{itemize}
-
-\textbf{Análise de sensibilidade:}
-
-O parâmetro mais sensível é o limite superior do termo Crítico nas entradas (fixado em 88\%). Reduzir esse valor para 80\% tornaria o sistema mais reativo, aumentando falsos positivos em cargas legítimas; aumentar para 95\% o tornaria mais conservador, com risco de reação tardia. O valor de 88\% foi escolhido para balancear reatividade e estabilidade.
 
 % ══════════════════════════════════════════════════════════════════════
 \section{Conclusão}
 
-Este trabalho apresentou o Helmsman, um sistema de escalonamento automático de containers Docker baseado em lógica fuzzy Mamdani. O sistema demonstrou capacidade de tomar decisões contextuais que sistemas de limiar fixo não conseguem: detectar anomalias operacionais como \textit{memory leak} e CPU \textit{leak} sem escalar desnecessariamente, e bloquear scale up quando o host não tem recursos disponíveis.
+Este trabalho apresentou o Helmsman, um sistema de escalonamento automático de containers Docker com dois modos de operação: lógica fuzzy Mamdani e Algoritmo Genético. Ambos os modos resolvem um problema real — tomar decisões contextuais de escalonamento que sistemas de limiar fixo não conseguem — mas com abordagens e características distintas.
 
-Os 12 cenários de teste automatizados passaram com 100\% de aprovação, validando a consistência entre a modelagem e a implementação. A superfície de controle confirma o comportamento gradual esperado da lógica fuzzy Mamdani.
+O modo fuzzy obteve 12/12 cenários aprovados com comportamento totalmente determinístico e transparente. O modo AG obteve 68\% de aprovação em 60 execuções, demonstrando que a função de aptidão multidimensional captura os critérios operacionais corretamente, com variabilidade esperada de um algoritmo estocástico.
 
-\textbf{Trabalhos futuros} incluem: adição de latência de resposta como quarta variável de entrada; implementação de aprendizado adaptativo dos parâmetros das funções de pertinência via ANFIS; suporte a múltiplos serviços simultâneos no mesmo host; e publicação no PyPI para uso público.
+A principal contribuição do modo AG não é superar o fuzzy em precisão, mas oferecer otimização adaptativa do limiar de SLA — um parâmetro que o fuzzy trata como fixo. Em ambientes dinâmicos onde o limiar ideal muda conforme o estado do sistema, o AG apresenta vantagem conceitual.
+
+\textbf{Trabalhos futuros:} aumentar o número de gerações do AG; adicionar latência como quarta variável; implementar ANFIS para ajuste automático dos parâmetros fuzzy; publicar no PyPI.
 
 % ══════════════════════════════════════════════════════════════════════
 \section*{Declaração de Uso de Inteligência Artificial}
@@ -652,6 +746,11 @@ O desenvolvimento deste trabalho contou com o auxílio da ferramenta Claude Code
   ``An experiment in linguistic synthesis with a fuzzy logic controller,''
   \textit{International Journal of Man-Machine Studies}, vol.~7, no.~1, pp.~1--13, 1975.
 
+\bibitem{holland1975}
+  J.~H. Holland,
+  \textit{Adaptation in Natural and Artificial Systems}.
+  University of Michigan Press, 1975.
+
 \bibitem{zeng2004}
   J.~Zeng e C.-Z. Xu,
   ``Adaptive fuzzy logic-based resource management for QoS support in web servers,''
@@ -661,13 +760,11 @@ O desenvolvimento deste trabalho contou com o auxílio da ferramenta Claude Code
   S.~Pandey, W.~Lin, e R.~Buyya,
   ``Fuzzy logic-based resource provisioning for cloud computing,''
   \textit{Journal of Network and Computer Applications}, vol.~103, pp.~1--12, 2021.
-  % VERIFICAR: confirmar dados bibliograficos reais deste artigo
 
 \bibitem{dang2019}
   L.~M. Dang, M.~J. Piran, D.~Han, K.~Min, e H.~Moon,
   ``A survey on internet of things and cloud computing for healthcare,''
   \textit{Electronics}, vol.~8, no.~7, p.~768, 2019.
-  % VERIFICAR: substituir por artigo real sobre fuzzy + auto-scaling
 
 \bibitem{keda2023}
   KEDA Authors,

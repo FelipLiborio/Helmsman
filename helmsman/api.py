@@ -42,6 +42,7 @@ def get_status():
         "replicas": len(state.managed_containers),
         "max_replicas": state.max_replicas,
         "service_name": state.service_name,
+        "mode": state.mode,
         "last_alert": {
             "level": a.level if a else "none",
             "message": a.message if a else "",
@@ -131,6 +132,15 @@ def get_host_info():
 def get_http_stats():
     from .collector import http_stats
     return http_stats()
+
+
+@api.get("/ag/status")
+def get_ag_status():
+    if state.mode != "ag":
+        return {"mode": "fuzzy", "detail": "modo AG não está ativo"}
+    if state.ag_last is None:
+        return {"mode": "ag", "detail": "aguardando primeiro ciclo"}
+    return state.ag_last
 
 
 @api.get("/alerts")
