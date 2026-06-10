@@ -167,6 +167,34 @@ O valor contínuo de `delta_replicas` é arredondado para o inteiro mais próxim
 
 ---
 
+## Motor Algoritmo Genético (`--mode ag`)
+
+Como alternativa ao motor fuzzy, o Helmsman implementa um Algoritmo Genético do zero (apenas `random` da stdlib) que evolui, a cada ciclo de monitoramento, um cromossomo:
+
+```text
+[n_replicas, sla_threshold]
+  n_replicas    — número de réplicas candidato (min_replicas .. max_replicas)
+  sla_threshold — limiar de ocupação (%) a partir do qual há sobrecarga (70..95)
+```
+
+| Parâmetro | Valor |
+|---|---|
+| Tamanho da população | 20 |
+| Gerações | 50 |
+| Seleção | Torneio (k=3) |
+| Crossover | Média dos genes dos pais |
+| Mutação | 20% por gene |
+
+A função de aptidão (a minimizar) combina: custo por réplica, risco de sobrecarga simulado pelo motor fuzzy Mamdani (`alert_score` de `engine.infer`), penalidade de SLA, instabilidade (mudança brusca de réplicas) e conservadorismo do `sla_threshold`. Detalhes e a comparação contra um AG sem componente fuzzy e contra uma heurística simples estão em `docs/relatorio.tex`.
+
+Para usar:
+
+```bash
+helmsman start --host localhost --port 8000 --container meu-servico --mode ag
+```
+
+---
+
 ## Instalação
 
 ```bash
@@ -201,14 +229,17 @@ helmsman start \
   --min-replicas 1 \
   --max-replicas 5 \
   --rps-per-replica 30 \
-  --poll-interval 5
+  --poll-interval 5 \
+  --mode fuzzy
 ```
 
 `--rps-per-replica` define o limite de requisições por segundo que um container aguenta. É o parâmetro mais importante para calibrar o sistema ao seu serviço.
 
+`--mode` seleciona o motor de decisão: `fuzzy` (padrão, lógica Mamdani) ou `ag` (Algoritmo Genético — ver seção [Motor Algoritmo Genético](#motor-algoritmo-genético---mode-ag)).
+
 ```bash
 helmsman status   # réplicas ativas, última decisão e alerta
-helmsman logs     # histórico de decisões fuzzy
+helmsman logs     # histórico de decisões
 helmsman stop     # encerra containers gerenciados
 ```
 
@@ -243,10 +274,12 @@ k6 run --vus 50 --duration 30s tests/k6/load.js
 
 O tráfego deve passar pelo nginx sidecar (`http://localhost:8080`), não direto no serviço, para ser contado no RPS.
 
-## Cenários de teste do motor fuzzy
+## Cenários de teste
 
 ```bash
-python tests/scenarios.py
+python tests/scenarios.py        # 12 cenários — motor fuzzy
+python tests/ag_scenarios.py     # 12 cenários x 5 seeds — motor AG
+python tests/ag_comparison.py    # heurística simples vs AG-puro vs AG-fuzzy
 ```
 
-Roda os 12 cenários definidos na base teórica e verifica se o motor fuzzy produz os deltas e alertas esperados.
+`scenarios.py` roda os 12 cenários definidos na base teórica e verifica se o motor fuzzy produz os deltas e alertas esperados. `ag_scenarios.py` roda os mesmos cenários com o motor AG em 5 sementes distintas. `ag_comparison.py` compara as três abordagens de decisão lado a lado.
