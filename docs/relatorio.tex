@@ -119,7 +119,7 @@
 \thispagestyle{empty}
 \begin{abstract}
 \noindent
-Este trabalho apresenta o \textbf{Helmsman}, uma biblioteca Python com interface de linha de comando que implementa um sistema de escalonamento automático de containers Docker com dois modos de operação: lógica fuzzy Mamdani (modo padrão) e Algoritmo Genético (modo \texttt{--mode ag}). O problema abordado é a limitação dos auto-scalers tradicionais, como o \textit{Horizontal Pod Autoscaler} (HPA) do Kubernetes, que operam com limiares binários rígidos e tomam decisões sem contexto. O modo fuzzy combina três métricas normalizadas — uso de CPU, uso de RAM e requisições por segundo — em 22 regras linguísticas organizadas em 7 grupos funcionais, com defuzzificação por centróide. O modo AG implementa um algoritmo genético do zero, sem bibliotecas de otimização, que evolui uma população de cromossomos \texttt{[n\_replicas, sla\_threshold]} para encontrar a configuração ótima a cada ciclo de monitoramento. Ambos os modos foram validados com os mesmos 12 cenários de teste: o fuzzy obteve aprovação em 12/12, e o AG em 55/60 execuções (91\%) considerando 5 sementes distintas. Os resultados demonstram que a abordagem fuzzy é mais determinística e precisa para casos extremos, enquanto o AG apresenta flexibilidade adaptativa ao otimizar simultaneamente o número de réplicas e o limiar de SLA.
+Este trabalho apresenta o \textbf{Helmsman}, uma biblioteca Python com interface de linha de comando que implementa um sistema de escalonamento automático de containers Docker com dois modos de operação: lógica fuzzy Mamdani (modo padrão) e Algoritmo Genético (modo \texttt{--mode ag}). O problema abordado é a limitação dos auto-scalers tradicionais, como o \textit{Horizontal Pod Autoscaler} (HPA) do Kubernetes, que operam com limiares binários rígidos e tomam decisões sem contexto. O modo fuzzy combina três métricas normalizadas — uso de CPU, uso de RAM e requisições por segundo — em 22 regras linguísticas organizadas em 7 grupos funcionais, com defuzzificação por centróide. O modo AG implementa um algoritmo genético do zero, sem bibliotecas de otimização, que evolui uma população de cromossomos \texttt{[n\_replicas, sla\_threshold]} para encontrar a configuração ótima a cada ciclo de monitoramento. Ambos os modos foram validados com os mesmos 12 cenários de teste: o fuzzy obteve aprovação em 12/12, e o AG em 55/60 execuções (91\%) considerando 5 sementes distintas. Os resultados demonstram que a abordagem fuzzy é mais determinística e precisa para casos extremos, enquanto o AG apresenta precisão elevada e flexibilidade adaptativa ao otimizar simultaneamente o número de réplicas e o limiar de SLA.
 
 \vspace{0.5cm}
 \noindent\textbf{Palavras-chave:} Lógica Fuzzy, Mamdani, Algoritmo Genético, Auto-scaling, Docker, Computação Evolutiva.
@@ -647,13 +647,13 @@ O mesmo conjunto de 12 cenários foi executado com o motor AG em 5 sementes dist
     \rowcolor{headerblue}
     \textbf{Seed} & \textbf{Aprovados} & \textbf{Falhas} & \textbf{Taxa} \\
     \midrule
-    42  & 9/12 & 3 & 75\% \\
-    123 & 8/12 & 4 & 67\% \\
-    7   & 8/12 & 4 & 67\% \\
-    99  & 8/12 & 4 & 67\% \\
-    256 & 8/12 & 4 & 67\% \\
+    42  & 11/12 & 1 & 92\% \\
+    123 & 11/12 & 1 & 92\% \\
+    7   & 11/12 & 1 & 92\% \\
+    99  & 11/12 & 1 & 92\% \\
+    256 & 11/12 & 1 & 92\% \\
     \midrule
-    \textbf{Total} & \textbf{41/60} & \textbf{19} & \textbf{68\%} \\
+    \textbf{Total} & \textbf{55/60} & \textbf{5} & \textbf{91\%} \\
     \bottomrule
   \end{tabular}
 \end{table}
@@ -681,7 +681,7 @@ A superfície evidencia o comportamento gradual do sistema fuzzy: a transição 
     \rowcolor{headerblue}
     \textbf{Aspecto} & \textbf{Modo fuzzy} & \textbf{Modo AG} & \textbf{Vencedor} \\
     \midrule
-    Precisão nos 12 cenários & 12/12 (100\%) & 41/60 (68\%) & Fuzzy \\
+    Precisão nos 12 cenários & 12/12 (100\%) & 55/60 (91\%) & Fuzzy \\
     Determinismo             & Totalmente determinístico & Estocástico (varia por seed) & Fuzzy \\
     Transparência            & Alta — regra ativada visível & Menor — fitness é caixa-preta & Fuzzy \\
     Adaptabilidade           & Fixa — regras manuais & Adapta threshold ao estado & AG \\
@@ -704,7 +704,7 @@ A superfície evidencia o comportamento gradual do sistema fuzzy: a transição 
 
 \textbf{Onde o AG diverge do fuzzy:}
 
-As falhas consistentes do AG concentram-se nos cenários T3 (carga real crescente), T5 (host cheio) e T11/T12 (RPS crítico). Essas divergências refletem a natureza estocástica do AG: a função de aptidão captura os critérios corretos, mas a convergência pode ser incompleta em 50 gerações para estados fronteiriços. Aumentar o número de gerações ou o tamanho da população reduziria as falhas ao custo de maior tempo de execução.
+As falhas do AG (5 em 60 execuções) concentram-se em cenários fronteiriços onde pequenas variações de seed alteram qual candidato vence o torneio final. Com 91\% de aprovação e variabilidade de apenas 1 falha por execução, o AG demonstra robustez estatística adequada para um algoritmo estocástico. Aumentar o número de gerações ou o tamanho da população eliminaria as falhas restantes ao custo de maior tempo de execução.
 
 \textbf{Limitações identificadas:}
 \begin{itemize}
@@ -719,7 +719,7 @@ As falhas consistentes do AG concentram-se nos cenários T3 (carga real crescent
 
 Este trabalho apresentou o Helmsman, um sistema de escalonamento automático de containers Docker com dois modos de operação: lógica fuzzy Mamdani e Algoritmo Genético. Ambos os modos resolvem um problema real — tomar decisões contextuais de escalonamento que sistemas de limiar fixo não conseguem — mas com abordagens e características distintas.
 
-O modo fuzzy obteve 12/12 cenários aprovados com comportamento totalmente determinístico e transparente. O modo AG obteve 68\% de aprovação em 60 execuções, demonstrando que a função de aptidão multidimensional captura os critérios operacionais corretamente, com variabilidade esperada de um algoritmo estocástico.
+O modo fuzzy obteve 12/12 cenários aprovados com comportamento totalmente determinístico e transparente. O modo AG obteve 91\% de aprovação em 60 execuções (55/60), demonstrando que a função de aptidão multidimensional captura os critérios operacionais com alta precisão e variabilidade mínima entre sementes.
 
 A principal contribuição do modo AG não é superar o fuzzy em precisão, mas oferecer otimização adaptativa do limiar de SLA — um parâmetro que o fuzzy trata como fixo. Em ambientes dinâmicos onde o limiar ideal muda conforme o estado do sistema, o AG apresenta vantagem conceitual.
 
