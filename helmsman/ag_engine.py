@@ -11,6 +11,8 @@ Cromossomo: [n_replicas, sla_threshold]
 import random
 import math  # noqa: F401 — disponível para extensões futuras
 
+from .engine import infer
+
 _SLA_MIN = 70
 _SLA_MAX = 95
 
@@ -21,64 +23,52 @@ Cromossomo = list[int]  # [n_replicas, sla_threshold]
 # Função de aptidão
 # ---------------------------------------------------------------------------
 
+
 def fitness(cromossomo: Cromossomo, estado: dict) -> float:
     """
-    Avalia um cromossomo [n_replicas, sla_threshold] dado o estado atual.
+    Avalia um cromossomo [n_replicas, sla_threshold] dado o estado atual,
+    usando o motor fuzzy Mamdani para estimar o risco da configuração proposta.
     Quanto menor o valor, melhor o indivíduo.
 
     cromossomo[0] — n_replicas
     cromossomo[1] — sla_threshold (inteiro 70-95)
 
     Termos:
-      custo           — menos réplicas = menor custo operacional
-      sobrecarga      — penalidade exponencial acima do threshold (corrige T11/T12)
-      rps_absoluto    — pressiona scale up quando rps_real passa de 70% da capacidade (corrige T3)
-      ram_risco       — penaliza SUBIR réplica com RAM alta; manter não é penalizado (corrige T5)
-      leak            — CPU alta sem demanda = leak, não escala (cobre T6/T7)
-      mudanca         — evita variações bruscas desnecessárias
-      risco_threshold — penaliza threshold perigosamente alto (acima de 90%)
-      conservadorismo — penaliza threshold muito baixo (abaixo de 75%)
+      custo                  — menos réplicas = menor custo operacional
+      penalidade_fuzzy       — risco estimado pelo motor Mamdani para o cenário simulado
+      penalidade_sla         — penaliza ultrapassar o sla_threshold proposto
+      instabilidade          — evita variações bruscas desnecessárias
+      conservadorismo_sla    — penaliza thresholds extremos (muito altos ou muito baixos)
     """
-    n_replicas    = cromossomo[0]
+    n_replicas = cromossomo[0]
     sla_threshold = cromossomo[1]  # inteiro 70-95
 
-    capacidade = n_replicas * estado['rps_per_replica']
-    rps_pct    = estado['rps_real'] / capacidade if capacidade > 0 else 999.0
+    capacidade = n_replicas * estado["rps_per_replica"]
+    sim_rps_pct = (estado["rps_real"] / capacidade * 100) if capacidade > 0 else 100.0
+    sim_rps_pct = max(0.0, min(100.0, sim_rps_pct))
 
-    delta_pretendido = n_replicas - estado['replicas_atuais']
+    resultado_fuzzy = infer(estado["cpu_pct"], estado["ram_pct"], sim_rps_pct)
 
-    custo = n_replicas * 1.0
+    custo = n_replicas * 1.1
 
-    excesso    = max(0.0, rps_pct - sla_threshold / 100)
-    sobrecarga = excesso ** 1.5 * 20
+    penalidade_fuzzy = resultado_fuzzy.alert_score * 1.4
 
-    rps_absoluto = max(0.0, estado['rps_real'] - 0.70 * capacidade) * 0.12
+    penalidade_sla = max(0.0, sim_rps_pct - sla_threshold) * 10.0
 
-    ram_risco = (
-        max(0.0, estado['ram_pct'] - 80) / 20
-        * max(0, delta_pretendido)
-        * 8
-    )
+    instabilidade = abs(n_replicas - estado["replicas_atuais"]) * 0.8
 
-    sem_demanda = max(0.0, 0.3 - rps_pct)
-    cpu_alta    = max(0.0, estado['cpu_pct'] - 70) / 30
-    leak        = cpu_alta * sem_demanda * 20
-
-    mudanca = abs(delta_pretendido) * 0.5
-
-    risco_threshold = max(0.0, sla_threshold - 90) * 0.5
-
-    conservadorismo = max(0.0, 75 - sla_threshold) * 0.3
+    conservadorismo_sla = 0.0
+    if sla_threshold > 90:
+        conservadorismo_sla += (sla_threshold - 90) * 2.0
+    if sla_threshold < 75:
+        conservadorismo_sla += (75 - sla_threshold) * 1.5
 
     return (
         custo
-        + sobrecarga
-        + rps_absoluto
-        + ram_risco
-        + leak
-        + mudanca
-        + risco_threshold
-        + conservadorismo
+        + penalidade_fuzzy
+        + penalidade_sla
+        + instabilidade
+        + conservadorismo_sla
     )
 
 
@@ -86,7 +76,10 @@ def fitness(cromossomo: Cromossomo, estado: dict) -> float:
 # Operadores genéticos
 # ---------------------------------------------------------------------------
 
-def _inicializar_populacao(tamanho: int, min_rep: int, max_rep: int) -> list[Cromossomo]:
+
+def _inicializar_populacao(
+    tamanho: int, min_rep: int, max_rep: int
+) -> list[Cromossomo]:
     return [
         [random.randint(min_rep, max_rep), random.randint(_SLA_MIN, _SLA_MAX)]
         for _ in range(tamanho)
@@ -110,7 +103,9 @@ def _crossover(pai1: Cromossomo, pai2: Cromossomo) -> Cromossomo:
     ]
 
 
-def _mutacao(cromossomo: Cromossomo, min_rep: int, max_rep: int, taxa: float = 0.2) -> Cromossomo:
+def _mutacao(
+    cromossomo: Cromossomo, min_rep: int, max_rep: int, taxa: float = 0.2
+) -> Cromossomo:
     novo = list(cromossomo)
     if random.random() < taxa:
         novo[0] = max(min_rep, min(max_rep, novo[0] + random.choice([-1, 1])))
@@ -123,6 +118,7 @@ def _mutacao(cromossomo: Cromossomo, min_rep: int, max_rep: int, taxa: float = 0
 # Loop evolutivo principal
 # ---------------------------------------------------------------------------
 
+
 def evoluir(
     estado: dict,
     populacao_size: int = 20,
@@ -133,8 +129,8 @@ def evoluir(
     cromossomo_otimo[0] = replicas_alvo
     cromossomo_otimo[1] = sla_threshold descoberto (inteiro 70-95)
     """
-    min_rep = estado['min_replicas']
-    max_rep = estado['max_replicas']
+    min_rep = estado["min_replicas"]
+    max_rep = estado["max_replicas"]
 
     populacao = _inicializar_populacao(populacao_size, min_rep, max_rep)
     historico: list[float] = []
@@ -164,6 +160,7 @@ def evoluir(
 # ---------------------------------------------------------------------------
 # Alert simples para uso fora do motor fuzzy
 # ---------------------------------------------------------------------------
+
 
 def compute_alert(cpu_pct: float, ram_pct: float, rps_pct: float) -> tuple[float, str]:
     """Retorna (score, level) com a mesma escala de thresholds do motor fuzzy."""
