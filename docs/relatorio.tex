@@ -208,6 +208,7 @@ O Helmsman utiliza dois tipos de funções de pertinência:
 \end{equation}
 
 \subsection{Sistema de inferência Mamdani}
+\label{sec:mamdani}
 
 O sistema de inferência Mamdani \cite{mamdani1975} opera em quatro etapas:
 
@@ -485,6 +486,7 @@ A Figura~\ref{fig:ag} ilustra o fluxo completo do algoritmo.
 \end{figure}
 
 \subsection{Função de aptidão}
+\label{sec:ag_fitness_original}
 
 A função de aptidão captura os mesmos cenários operacionais das regras fuzzy, porém em forma matemática. O AG minimiza:
 
@@ -519,6 +521,7 @@ onde cada termo penaliza um aspecto do problema:
 onde $\theta = sla\_threshold / 100$ e $\Delta = n\_replicas - \text{réplicas\_atuais}$.
 
 \subsection{Parâmetros e operadores}
+\label{sec:ag_params}
 
 \begin{table}[H]
   \centering
@@ -545,6 +548,94 @@ O AG é implementado do zero em Python puro, usando apenas o módulo \texttt{ran
 \subsection{Custo computacional}
 
 Com 20 indivíduos e 50 gerações, o AG realiza 1.000 avaliações de aptidão por ciclo. Cada avaliação é aritmética pura — sem I/O, sem chamadas de sistema. O tempo total por ciclo é inferior a 1ms, bem abaixo do intervalo de polling de 5 segundos.
+
+\subsection{Extensão: Integração Fuzzy-Evolutiva}
+\label{sec:fuzzy_ag}
+
+Como extensão do modo AG, foi implementada uma segunda variante da função de aptidão — denominada \textbf{AG-fuzzy} — que substitui parte dos termos heurísticos originais por uma chamada direta ao motor de inferência Mamdani (Seção~\ref{sec:mamdani}, mesmas 22 regras). Para cada cromossomo \texttt{[n\_replicas, sla\_threshold]} avaliado, simula-se a ocupação resultante caso aquele número de réplicas fosse adotado:
+
+\begin{equation}
+  \text{sim\_rps\_pct} = \text{clip}\left(\frac{\text{rps\_real}}{n\_replicas \times \text{rps\_per\_replica}} \times 100,\; 0,\; 100\right)
+\end{equation}
+
+Esse valor simulado, junto com \texttt{cpu\_pct} e \texttt{ram\_pct} reais, é passado ao motor fuzzy: \texttt{infer(cpu\_pct, ram\_pct, sim\_rps\_pct)}, que retorna um \texttt{alert\_score} $\in [0, 100]$. A nova função de aptidão é:
+
+\begin{equation}
+  f_{\text{fuzzy}}(c) = f_{\text{custo}} + f_{\text{risco\_fuzzy}} + f_{\text{sla}} + f_{\text{instab}} + f_{\text{conserv}}
+\end{equation}
+
+\begin{table}[H]
+  \centering
+  \caption{Componentes da função de aptidão AG-fuzzy}
+  \label{tab:fitness_fuzzy}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabularx}{\textwidth}{lXl}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Componente} & \textbf{Significado} & \textbf{Fórmula} \\
+    \midrule
+    Custo            & Réplicas desnecessárias são caras & $n\_replicas \times 1{,}1$ \\
+    Risco fuzzy      & Risco do cenário simulado segundo o motor Mamdani & $\text{alert\_score} \times 1{,}4$ \\
+    SLA              & Penaliza ocupação simulada acima do limiar & $\max(0, \text{sim\_rps\_pct} - \theta) \times 10{,}0$ \\
+    Instabilidade    & Evita mudanças bruscas & $|\Delta| \times 0{,}8$ \\
+    Conservadorismo  & Penaliza thresholds extremos & ver Eq.~\ref{eq:conserv} \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\begin{equation}
+  \label{eq:conserv}
+  f_{\text{conserv}} =
+  \begin{cases}
+    (\theta - 90) \times 2{,}0 & \theta > 90 \\
+    (75 - \theta) \times 1{,}5 & \theta < 75 \\
+    0 & \text{caso contrário}
+  \end{cases}
+\end{equation}
+
+onde $\theta = sla\_threshold$ e $\Delta = n\_replicas - \text{réplicas\_atuais}$. Os operadores genéticos (seleção por torneio, crossover por média, mutação de 20\%) são idênticos aos da Seção~\ref{sec:ag_params}.
+
+\subsubsection{Comparação de três abordagens}
+
+Para avaliar o impacto da integração fuzzy-evolutiva, três abordagens foram comparadas nos mesmos 12 cenários $\times$ 5 sementes (60 execuções), implementadas em \texttt{tests/ag\_comparison.py}:
+
+\begin{itemize}
+  \item \textbf{Heurística simples} — regra fixa baseada apenas em \texttt{rps\_pct} atual (sem AG, sem fuzzy), representando um auto-scaler de limiar rígido tipo HPA;
+  \item \textbf{AG-puro} — AG com a função de aptidão original (Seção~\ref{sec:ag_fitness_original}), sem componente fuzzy;
+  \item \textbf{AG-fuzzy} — AG com a função de aptidão híbrida descrita acima.
+\end{itemize}
+
+\begin{table}[H]
+  \centering
+  \caption{Comparação entre heurística, AG-puro e AG-fuzzy — 60 execuções}
+  \label{tab:comparacao_fuzzy_ag}
+  \rowcolors{2}{rowgray}{white}
+  \begin{tabular}{lccc}
+    \toprule
+    \rowcolor{headerblue}
+    \textbf{Método} & \textbf{Aprovados} & \textbf{Falhas} & \textbf{Taxa} \\
+    \midrule
+    Heurística simples (sem otimização) & 25/60 & 35 & 41\% \\
+    AG-puro (fitness original)          & 55/60 &  5 & 91\% \\
+    AG-fuzzy (Alternativa 2)            & 45/60 & 15 & 75\% \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\subsubsection{Análise de impacto}
+
+A integração fuzzy-evolutiva supera amplamente a heurística de limiar fixo (75\% vs.\ 41\%), confirmando que mesmo uma fitness híbrida ainda captura muito mais contexto do que regras binárias. Entretanto, em relação ao AG-puro, a integração fuzzy resultou em uma \textbf{regressão de 16 pontos percentuais} (91\% $\rightarrow$ 75\%).
+
+A análise cenário a cenário mostra um \emph{trade-off}, não uma piora uniforme:
+
+\begin{itemize}
+  \item \textbf{T3 (carga real crescente)} — passou a ser aprovado com a fitness fuzzy, pois o \texttt{alert\_score} captura corretamente a combinação de CPU e RAM moderadas com RPS alto, algo que a fitness original subestimava;
+  \item \textbf{T4 (pico de tráfego), T10 (scale down gradual) e T11 (RPS crítico, CPU baixa)} — passaram a falhar. Em todos os três casos, o \texttt{sim\_rps\_pct} recalculado para o cromossomo candidato cai rapidamente assim que o número de réplicas aumenta, fazendo o \texttt{alert\_score} do motor fuzzy oscilar entre níveis de alerta vizinhos (\textit{none}/\textit{warning}) de forma pouco discriminante para esses estados — o termo fuzzy não consegue, sozinho, distinguir o candidato ótimo dos vizinhos com a mesma precisão que os termos analíticos originais (\texttt{rps\_absoluto}, \texttt{sobrecarga}).
+\end{itemize}
+
+Em suma, o motor fuzzy contribui com uma penalidade de risco mais "contextual" (vantajosa em T3), mas, como usado aqui — recalculado a partir de um \texttt{n\_replicas} candidato em constante mudança — perde a granularidade necessária para os cenários de fronteira onde o AG-puro já era preciso. Isso evidencia uma limitação conhecida de fitness híbridas: combinar dois sistemas que já são individualmente bem ajustados (regras fuzzy calibradas para o estado \emph{real}, função analítica calibrada para o estado \emph{candidato}) não garante que a combinação supere ambos — o ponto de acoplamento entre os dois (aqui, o recálculo de \texttt{sim\_rps\_pct}) é o fator decisivo.
+
+\textbf{Trabalho futuro:} usar o \texttt{alert\_score} do estado \emph{atual} (não simulado) como um termo de contexto fixo somado a todos os candidatos — em vez de recalculado por candidato —, preservando a precisão dos termos analíticos para diferenciar \texttt{n\_replicas} e usando o fuzzy apenas como sinalizador de urgência geral do cenário.
 
 % ══════════════════════════════════════════════════════════════════════
 \section{Implementação}
