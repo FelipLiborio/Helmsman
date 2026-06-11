@@ -354,14 +354,14 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre ant
 \begin{table}[H]
   \centering
   \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{cccccX}
+  \begin{tabularx}{\textwidth}{ccccccX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{Justificativa} \\
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{Operação} & \textbf{delta} & \textbf{Justificativa} \\
     \midrule
-    1 & Baixo    & Baixo & Baixo    & Derrubar forte & Completamente ocioso \\
-    2 & Baixo    & Baixo & Moderado & Manter         & Ainda há tráfego, não derruba \\
-    3 & Moderado & Baixo & Baixo    & Derrubar       & CPU moderada sem demanda \\
+    1 & Baixo    & Baixo & Baixo    & AND & Derrubar forte & Completamente ocioso \\
+    2 & Baixo    & Baixo & Moderado & AND & Manter         & Ainda há tráfego, não derruba \\
+    3 & Moderado & Baixo & Baixo    & AND & Derrubar       & CPU moderada sem demanda \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -370,13 +370,13 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre ant
 \begin{table}[H]
   \centering
   \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{cccccX}
+  \begin{tabularx}{\textwidth}{ccccccX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{Justificativa} \\
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{Operação} & \textbf{delta} & \textbf{Justificativa} \\
     \midrule
-    4 & Baixo & Baixo    & Alto & Subir & Atingiu o limite de \texttt{rps\_per\_replica} \\
-    5 & Baixo & Moderado & Alto & Subir & Idem, RAM já crescendo \\
+    4 & Baixo & Baixo    & Alto & AND & Subir & Atingiu o limite de \texttt{rps\_per\_replica} \\
+    5 & Baixo & Moderado & Alto & AND & Subir & Idem, RAM já crescendo \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -385,14 +385,14 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre ant
 \begin{table}[H]
   \centering
   \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{ccccccX}
+  \begin{tabularx}{\textwidth}{cccccccX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{Operação} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
     \midrule
-    6 & Moderado & Moderado & Alto & Subir & Nenhum  & Pressão confirmada nos três sinais \\
-    7 & Alto     & Moderado & Alto & Subir & Nenhum  & CPU alta com demanda alta \\
-    8 & Moderado & Alto     & Alto & Subir & Warning & RAM alta com demanda crescente \\
+    6 & Moderado & Moderado & Alto & AND & Subir & Nenhum  & Pressão confirmada nos três sinais \\
+    7 & Alto     & Moderado & Alto & AND & Subir & Nenhum  & CPU alta com demanda alta \\
+    8 & Moderado & Alto     & Alto & AND & Subir & Warning & RAM alta com demanda crescente \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -401,14 +401,14 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre ant
 \begin{table}[H]
   \centering
   \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{ccccccX}
+  \begin{tabularx}{\textwidth}{cccccccX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{Operação} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
     \midrule
-    9  & Alto     & Alto     & Alto     & Subir forte & Warning  & Saturação generalizada \\
-    10 & Crítico  & Moderado & Alto     & Subir forte & Warning  & CPU crítica com demanda alta \\
-    11 & Alto     & Moderado & Crítico  & Subir forte & Critical & Demanda crítica no limite \\
+    9  & Alto     & Alto     & Alto     & AND & Subir forte & Warning  & Saturação generalizada \\
+    10 & Crítico  & Moderado & Alto     & AND & Subir forte & Warning  & CPU crítica com demanda alta \\
+    11 & Alto     & Moderado & Crítico  & AND & Subir forte & Critical & Demanda crítica no limite \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -417,13 +417,13 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre ant
 \begin{table}[H]
   \centering
   \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{ccccccX}
+  \begin{tabularx}{\textwidth}{cccccccX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{Operação} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
     \midrule
-    12 & Alto    & Crítico & Alto    & Manter & Critical & Subir container poderia derrubar o host \\
-    13 & Crítico & Crítico & Crítico & Manter & Critical & Colapso iminente — intervenção humana \\
+    12 & Alto    & Crítico & Alto    & AND & Manter & Critical & Subir container poderia derrubar o host \\
+    13 & Crítico & Crítico & Crítico & AND & Manter & Critical & Colapso iminente — intervenção humana \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -432,16 +432,16 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre ant
 \begin{table}[H]
   \centering
   \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{ccccccX}
+  \begin{tabularx}{\textwidth}{cccccccX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{Operação} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
     \midrule
-    14 & Alto    & Baixo   & Baixo & Manter         & Warning  & Suspeita de CPU leak \\
-    15 & Crítico & Baixo   & Baixo & Derrubar       & Critical & CPU crítica sem demanda \\
-    16 & Baixo   & Alto    & Baixo & Derrubar       & Warning  & Suspeita de memory leak \\
-    17 & Baixo   & Crítico & Baixo & Derrubar forte & Critical & Memory leak severo \\
-    18 & Alto    & Alto    & Baixo & Derrubar       & Critical & CPU e RAM altas sem demanda \\
+    14 & Alto    & Baixo   & Baixo & AND & Manter         & Warning  & Suspeita de CPU leak \\
+    15 & Crítico & Baixo   & Baixo & AND & Derrubar       & Critical & CPU crítica sem demanda \\
+    16 & Baixo   & Alto    & Baixo & AND & Derrubar       & Warning  & Suspeita de memory leak \\
+    17 & Baixo   & Crítico & Baixo & AND & Derrubar forte & Critical & Memory leak severo \\
+    18 & Alto    & Alto    & Baixo & AND & Derrubar       & Critical & CPU e RAM altas sem demanda \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -450,15 +450,15 @@ O sistema implementa 22 regras organizadas em 7 grupos funcionais. AND entre ant
 \begin{table}[H]
   \centering
   \rowcolors{2}{rowgray}{white}
-  \begin{tabularx}{\textwidth}{ccccccX}
+  \begin{tabularx}{\textwidth}{cccccccX}
     \toprule
     \rowcolor{headerblue}
-    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
+    \textbf{\#} & \textbf{cpu} & \textbf{ram} & \textbf{rps} & \textbf{Operação} & \textbf{delta} & \textbf{alerta} & \textbf{Justificativa} \\
     \midrule
-    19 & Baixo    & Baixo    & Crítico & Subir       & Warning & Capacidade esgotada, recursos livres \\
-    20 & Moderado & Baixo    & Crítico & Subir forte & Warning & CPU crescendo + capacidade no limite \\
-    21 & Baixo    & Moderado & Crítico & Subir       & Warning & RAM crescendo + capacidade no limite \\
-    22 & Moderado & Moderado & Crítico & Subir forte & Warning & Tudo crescendo, escala agressiva \\
+    19 & Baixo    & Baixo    & Crítico & AND & Subir       & Warning & Capacidade esgotada, recursos livres \\
+    20 & Moderado & Baixo    & Crítico & AND & Subir forte & Warning & CPU crescendo + capacidade no limite \\
+    21 & Baixo    & Moderado & Crítico & AND & Subir       & Warning & RAM crescendo + capacidade no limite \\
+    22 & Moderado & Moderado & Crítico & AND & Subir forte & Warning & Tudo crescendo, escala agressiva \\
     \bottomrule
   \end{tabularx}
 \end{table}
