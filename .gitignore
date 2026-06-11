@@ -1,3 +1,5 @@
 plano.md
 .venv/
 __pycache__/
+*.egg-info/
+helmsman/frontend_dist/
